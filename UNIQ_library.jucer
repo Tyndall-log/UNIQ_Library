@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+SPDX-FileCopyrightText: © 2023 Kim Eun-su <eunsu0402@gmail.com>
+SPDX-License-Identifier: LGPL-3.0-linking-exception
+-->
+
+<JUCERPROJECT id="bYYLaU" name="UNIQ_library" projectType="consoleapp" useAppConfig="0"
+              displaySplashScreen="1" jucerFormatVersion="1" addUsingNamespaceToJuceHeader="0"
+              cppLanguageStandard="20">
+  <MAINGROUP id="wfcrqP" name="UNIQ_library">
+    <GROUP id="{81E9F1EA-351F-C3A1-6EC5-B6C286BBD97E}" name="Source">
+      <FILE id="JNfiQe" name="system.cpp" compile="1" resource="0" file="Source/system.cpp"/>
+      <FILE id="JBH2ir" name="system.h" compile="0" resource="0" file="Source/system.h"/>
+      <FILE id="KRbURx" name="main.cpp" compile="1" resource="0" file="Source/main.cpp"/>
+      <FILE id="m11KLp" name="test.cpp" compile="1" resource="0" file="Source/test.cpp"/>
+      <FILE id="itoBse" name="test.h" compile="0" resource="0" file="Source/test.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>
+  <EXPORTFORMATS>
+    <VS2022 targetFolder="Builds/VisualStudio2022">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="UNIQ_library" extraCompilerFlags="/utf-8"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="UNIQ_library" extraCompilerFlags="/utf-8"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="c:/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="c:/JUCE/modules"/>
+      </MODULEPATHS>
+    </VS2022>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+</JUCERPROJECT>
