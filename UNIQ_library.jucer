@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!--
-SPDX-FileCopyrightText: © 2023 Kim Eun-su <eunsu0402@gmail.com>
-SPDX-License-Identifier: LGPL-3.0-linking-exception
--->
-
 <JUCERPROJECT id="bYYLaU" name="UNIQ_library" projectType="consoleapp" useAppConfig="0"
               displaySplashScreen="1" jucerFormatVersion="1" addUsingNamespaceToJuceHeader="0"
               cppLanguageStandard="20">
   <MAINGROUP id="wfcrqP" name="UNIQ_library">
     <GROUP id="{81E9F1EA-351F-C3A1-6EC5-B6C286BBD97E}" name="Source">
-      <FILE id="JNfiQe" name="system.cpp" compile="1" resource="0" file="Source/system.cpp"/>
+      <GROUP id="{E2ACD613-32E2-CE13-43CF-8E6387C9A6B7}" name="Unipack">
+        <FILE id="uSnPND" name="unipack.cpp" compile="1" resource="0" file="Source/unipack.cpp"/>
+        <FILE id="OW9Npy" name="unipack.h" compile="0" resource="0" file="Source/unipack.h"/>
+      </GROUP>
+      <GROUP id="{D7BD3672-672A-B60F-F304-289F58B67BEF}" name="Console_test">
+        <FILE id="g9WmZi" name="main.cpp" compile="1" resource="0" file="Source/Console_test/main.cpp"/>
+      </GROUP>
+      <GROUP id="{5E5E797B-E12C-2482-D60A-106DC1A4131A}" name="Launchpad">
+        <FILE id="HVv2oV" name="launchpad.h" compile="0" resource="0" file="Source/Launchpad/launchpad.h"/>
+        <FILE id="k0TBOl" name="launchpad.cpp" compile="1" resource="0" file="Source/Launchpad/launchpad.cpp"/>
+      </GROUP>
       <FILE id="JBH2ir" name="system.h" compile="0" resource="0" file="Source/system.h"/>
-      <FILE id="KRbURx" name="main.cpp" compile="1" resource="0" file="Source/main.cpp"/>
-      <FILE id="m11KLp" name="test.cpp" compile="1" resource="0" file="Source/test.cpp"/>
-      <FILE id="itoBse" name="test.h" compile="0" resource="0" file="Source/test.h"/>
+      <FILE id="JNfiQe" name="system.cpp" compile="1" resource="0" file="Source/system.cpp"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1"/>

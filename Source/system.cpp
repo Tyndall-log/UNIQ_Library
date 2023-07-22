@@ -3,22 +3,53 @@
 
 #include "system.h"
 
-MainMessageThread::MainMessageThread() : Thread("UNIQ_MessageThread")
-{
-	startThread();
-	cout << (wait(1000) ? "MainMessageThread start" : "MainMessageThread fail") << endl;
-}
+using namespace std;
+using namespace juce;
 
-MainMessageThread::~MainMessageThread()
+namespace uniq
 {
-	MessageManager::getInstanceWithoutCreating()->stopDispatchLoop();
-	stopThread(1000);
-}
+#pragma region ID_manager
+	std::size_t ID_manager::id_ = 0;
+	std::unordered_map<std::size_t, std::any> ID_manager::registry_;
+	juce::SpinLock ID_manager::lock;
 
-void MainMessageThread::run()
-{
-	ScopedJuceInitialiser_GUI SJI_GUI;
-	notify();
-	MessageManager::getInstance()->runDispatchLoop();
-	cout << "MainMessageThread stop" << endl;
+	std::size_t ID_manager::generate_ID()
+	{
+		juce::SpinLock::ScopedLockType scoped_lock(lock);
+		std::size_t id = ++id_;
+		registry_.emplace(id, std::any());
+		return id;
+	}
+
+	void ID_manager::unregister_ID(std::size_t id)
+	{
+		juce::SpinLock::ScopedLockType scoped_lock(lock);
+		registry_.erase(id);
+	}
+#pragma endregion ID_manager
+
+
+
+	/*template<typename T>
+	juce::SpinLock ID<T>::lock;*/
+
+	MainMessageThread::MainMessageThread() : Thread("UNIQ_MessageThread")
+	{
+		startThread();
+		cout << (wait(1000) ? "MainMessageThread start" : "MainMessageThread fail") << endl;
+	}
+
+	MainMessageThread::~MainMessageThread()
+	{
+		MessageManager::getInstanceWithoutCreating()->stopDispatchLoop();
+		stopThread(1000);
+	}
+
+	void MainMessageThread::run()
+	{
+		ScopedJuceInitialiser_GUI SJI_GUI;
+		notify();
+		MessageManager::getInstance()->runDispatchLoop();
+		cout << "MainMessageThread stop" << endl;
+	}
 }
