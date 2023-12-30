@@ -11,11 +11,11 @@ namespace uniq
 #pragma region ID_manager
 	std::size_t ID_manager::id_ = 0;
 	std::unordered_map<std::size_t, std::any> ID_manager::registry_;
-	juce::SpinLock ID_manager::lock;
+	juce::SpinLock ID_manager::lock_;
 
 	std::size_t ID_manager::generate_ID()
 	{
-		juce::SpinLock::ScopedLockType scoped_lock(lock);
+		juce::SpinLock::ScopedLockType scoped_lock(lock_);
 		std::size_t id = ++id_;
 		registry_.emplace(id, std::any());
 		return id;
@@ -23,7 +23,7 @@ namespace uniq
 
 	void ID_manager::unregister_ID(std::size_t id)
 	{
-		juce::SpinLock::ScopedLockType scoped_lock(lock);
+		juce::SpinLock::ScopedLockType scoped_lock(lock_);
 		registry_.erase(id);
 	}
 #pragma endregion ID_manager

@@ -10,11 +10,72 @@ using namespace uniq;
 
 namespace uniq
 {
+	class Secret
+	{
+		template<typename T>
+		friend class uniq_base;
+		class Parent
+		{
+		public:
+			class
+			{
+				void test() {}
+			} parent;
+		};
+	};
+
+	template<typename T>
+	class uniq_base : public ID<T>, public Secret::Parent
+	{
+	public:
+		void test()
+		{
+
+		}
+	protected:
+		uniq_base() = default;
+	public:
+		class
+		{
+			void test2() {}
+		} test_inlined;
+	};
+
+	class chain_configuration
+	{
+
+	};
+
+	template<typename T>
+	class chain
+	{
+		T value;
+	public:
+		const T& get() const
+		{
+			return value;
+		}
+		void set(const T& value)
+		{
+			this->value = value;
+		}
+		const T& operator=(const T& value)
+		{
+			set(value);
+			return get();
+		}
+		operator const T& () const { return get(); }
+	};
+
 	class A : public ID<A>
 	{
 	protected:
 		A() = default;
 	public:
+		static std::shared_ptr<A> create()
+		{
+			return ID<A>::create();
+		}
 		std::string get_name()
 		{
 			return "Class A";
@@ -26,9 +87,28 @@ namespace uniq
 	protected:
 		B() = default;
 	public:
+		static std::shared_ptr<B> create()
+		{
+			return ID<B>::create();
+		}
 		std::string get_name()
 		{
 			return "Class B";
+		}
+	};
+
+	class C : public uniq_base<C>
+	{
+	protected:
+		C() = default;
+	public:
+		static auto create()
+		{
+			return uniq_base<C>::create();
+		}
+		auto get_name()
+		{
+			return "Class C"s;
 		}
 	};
 }
@@ -36,9 +116,16 @@ namespace uniq
 int main()
 {
 	system("chcp 65001"); //한글 설정
+	
+	if (true)
+	{
+		auto a = 1;
+	}
 
-	std::shared_ptr<A> a = A::create();
-	std::shared_ptr<B> b = B::create();
+	auto a = A::create();
+	auto b = B::create();
+	auto c = C::create();
+	//c->test();
 
 	//객체 크기 확인
 	std::cout << "sizeof(A): " << sizeof(A) << "\n";

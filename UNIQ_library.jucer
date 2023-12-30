@@ -5,6 +5,14 @@
               cppLanguageStandard="20">
   <MAINGROUP id="wfcrqP" name="UNIQ_library">
     <GROUP id="{81E9F1EA-351F-C3A1-6EC5-B6C286BBD97E}" name="Source">
+      <GROUP id="{8934584D-CE89-3FF7-BE46-D61368478E10}" name="timeline">
+        <FILE id="HGXTZu" name="timeline_cuepoint.cpp" compile="1" resource="0"
+              file="Source/timeline_cuepoint.cpp"/>
+        <FILE id="CRp8tx" name="timeline_cuepoint.h" compile="0" resource="0"
+              file="Source/timeline_cuepoint.h"/>
+        <FILE id="wQrHDy" name="timeline.cpp" compile="1" resource="0" file="Source/timeline.cpp"/>
+        <FILE id="YlcALO" name="timeline.h" compile="0" resource="0" file="Source/timeline.h"/>
+      </GROUP>
       <GROUP id="{E2ACD613-32E2-CE13-43CF-8E6387C9A6B7}" name="Unipack">
         <FILE id="uSnPND" name="unipack.cpp" compile="1" resource="0" file="Source/unipack.cpp"/>
         <FILE id="OW9Npy" name="unipack.h" compile="0" resource="0" file="Source/unipack.h"/>
@@ -16,6 +24,7 @@
         <FILE id="HVv2oV" name="launchpad.h" compile="0" resource="0" file="Source/Launchpad/launchpad.h"/>
         <FILE id="k0TBOl" name="launchpad.cpp" compile="1" resource="0" file="Source/Launchpad/launchpad.cpp"/>
       </GROUP>
+      <FILE id="oH2Cog" name="system.hpp" compile="0" resource="0" file="Source/system.hpp"/>
       <FILE id="JBH2ir" name="system.h" compile="0" resource="0" file="Source/system.h"/>
       <FILE id="JNfiQe" name="system.cpp" compile="1" resource="0" file="Source/system.cpp"/>
     </GROUP>
