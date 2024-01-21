@@ -16,6 +16,7 @@
 //#include <juce_gui_basics/components/juce_Component.h>
 
 #include "core.hpp"
+#include <string>
 #include <algorithm>
 #include <iostream>
 #include <ranges>
@@ -25,6 +26,7 @@
 #include <typeindex>
 #include <memory>
 #include <format>
+#include <mutex>
 
 
 namespace uniq
@@ -457,5 +459,93 @@ namespace uniq
 		~MainMessageThread() override;
 		
 		void run() override;
+	};
+
+	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
+	class message_thread : public juce::Thread
+	{
+		inline static std::unique_ptr<juce::MessageManager> mm_ = nullptr;
+		inline static std::shared_ptr<message_thread> instance_ = nullptr;
+		inline static std::weak_ptr<message_thread> instance_weak_;
+		inline static std::mutex mutex_;
+		message_thread();
+		void run() override;
+		template<typename Func, typename Promise>
+		static void execute_and_set(Func &f, Promise &promise)
+		{
+			f();
+			promise->set_value();
+			// try
+			// {
+			// 	if constexpr (std::is_void_v<decltype(f())>)
+			// 	{
+			// 		f();
+			// 		promise.set_value();
+			// 	}
+			// 	else
+			// 	{
+			// 		promise.set_value(f());
+			// 	}
+			// } catch (...)
+			// {
+			// 	promise.set_exception(std::current_exception());
+			// }
+		}
+	public:
+		~message_thread() override;
+		message_thread(const message_thread&) = delete; //복사 생성자 삭제
+		message_thread(message_thread&&) = delete; //이동 생성자 삭제
+		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
+		message_thread& operator=(message_thread&&) = delete; //이동 대입 연산자 삭제
+		[[nodiscard]] static std::shared_ptr<message_thread> get();
+		static void activate();
+		static void deactivate();
+		template<typename Func>
+		auto call_async(Func f) -> std::future<decltype(f())>
+		{
+			auto promise = std::make_shared<std::promise<decltype(f())>>();
+			auto future = promise->get_future();
+			if (mm_->isThisTheMessageThread())
+			{
+				execute_and_set(f, promise);
+				return future;
+			}
+			juce::MessageManager::callAsync([f, promise]() mutable {
+				execute_and_set(f, promise);
+			});
+			return future;
+		}
+		template<typename Func>
+		auto call_sync(Func f) -> decltype(f())
+		{
+			return call_async(f).get();
+		}
+	};
+
+	class mutex_test : public juce::Thread
+	{
+		inline static std::mutex mutex_;
+		void run() override
+		{
+			const auto mm = std::unique_ptr<juce::MessageManager>(juce::MessageManager::getInstance());
+			notify(); // 메시지 스레드가 시작되었음을 알림
+			mm->runDispatchLoop();
+			notify(); // 메시지 스레드가 종료되었음을 알림
+		}
+		mutex_test() : Thread("mutex_test")
+		{
+			startThread();
+			log::println(wait(1000) ? "mutex_test start" : "mutex_test fail");
+		}
+	public:
+		~mutex_test() override
+		{
+			auto mm = juce::MessageManager::getInstanceWithoutCreating();
+			if (!mm) return;
+			mm->stopDispatchLoop();
+			log::println("MainMessageThread stop");
+			stopThread(1000);
+		}
+		[[nodiscard]] static std::shared_ptr<mutex_test> get();
 	};
 }

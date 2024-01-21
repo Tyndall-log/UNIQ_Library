@@ -6,6 +6,10 @@ project(UNIQ_library)  #프로젝트 이름 설정
 
 set(CMAKE_CXX_STANDARD 20)  #c++20 표준 사용
 
+# message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+# message(STATUS "CMAKE_EXPORT_COMPILE_COMMANDS: ${CMAKE_EXPORT_COMPILE_COMMANDS}")
+set(UNIQ_INCOMPATIBLE_LICENSE_BAN ON)  #LGPL-3.0-linking-exception 라이선스와 호환되지 않는 라이선스 사용 금지
+
 if(ANDROID)
 	# 참고: https://atsushieno.github.io/2021/01/16/juce-cmake-android-now-works.html
 	set(OBOE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/module/juce/modules/juce_audio_devices/native/oboe")
