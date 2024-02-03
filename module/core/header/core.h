@@ -473,23 +473,22 @@ namespace uniq
 		template<typename Func, typename Promise>
 		static void execute_and_set(Func &f, Promise &promise)
 		{
-			f();
-			promise->set_value();
-			// try
-			// {
-			// 	if constexpr (std::is_void_v<decltype(f())>)
-			// 	{
-			// 		f();
-			// 		promise.set_value();
-			// 	}
-			// 	else
-			// 	{
-			// 		promise.set_value(f());
-			// 	}
-			// } catch (...)
-			// {
-			// 	promise.set_exception(std::current_exception());
-			// }
+			try
+			{
+				if constexpr (std::is_void_v<decltype(f())>)
+				{
+					f();
+					promise->set_value();
+				}
+				else
+				{
+					promise->set_value(f());
+				}
+			}
+			catch (...)
+			{
+				promise->set_exception(std::current_exception());
+			}
 		}
 	public:
 		~message_thread() override;

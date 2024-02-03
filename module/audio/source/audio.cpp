@@ -14,7 +14,7 @@ namespace uniq
 
 	};
 
-	class audio_data : public ID<audio_data>
+	class audio_source : public ID<audio_source>
 	{
 
 	};

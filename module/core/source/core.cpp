@@ -8,11 +8,6 @@ using namespace juce;
 
 namespace uniq
 {
-#ifdef _WIN32
-#define API extern "C" __declspec(dllexport)
-#else
-#define API extern "C" __attribute__((visibility("default")))
-#endif
 	std::string log::message_temp;
 	std::string log::message;
 	
@@ -98,6 +93,7 @@ namespace uniq
 		mm_->runDispatchLoop();
 		notify(); // 메시지 스레드가 종료되었음을 알림
 		mm_.reset();
+		DeletedAtShutdown::deleteAll();
 	}
 
 	shared_ptr<message_thread> message_thread::get()

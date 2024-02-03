@@ -76,3 +76,17 @@ namespace uniq
 	template<template<class...> class T, typename... Us>
 	constexpr bool any_instances_of_v = any_instances_of<T, Us...>::value;
 }
+
+#define UNIQ_FUNC_CATEGORY_BEGIN(parent, name) \
+class name \
+{ \
+const parent& parent_; \
+explicit name(const parent& parent) : parent_{parent}{} \
+public: \
+name(const name&) = delete; \
+name(name&&) = delete; \
+name& operator=(const name&) = delete; \
+name& operator=(name&&) = delete;
+
+#define UNIQ_FUNC_CATEGORY_END(name) \
+} name{*this};

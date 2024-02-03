@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: © 2024 Kim Eun-su <eunsu0402@gmail.com>
+// SPDX-License-Identifier: LGPL-3.0-linking-exception
+
 #include "main.h"
 #include <chrono>
 #include <iostream>
@@ -14,17 +17,6 @@ using namespace uniq;
 
 namespace uniq
 {
-	class audio : public ID<audio>
-	{
-	private:
-
-	};
-
-	class audio_data : public ID<audio_data>
-	{
-
-	};
-
 	class audio_device_manager : public ID<audio_device_manager>
 	{
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
@@ -32,75 +24,64 @@ namespace uniq
 	public:
 		audio_device_manager()
 		{
-			//메시지 스레드에서 AudioDeviceManager를 생성해야 한다.
+			log::println("audio_device_manager 생성자");
 			const auto future = mt_->call_async([this] {
 				device_manager_ = std::make_unique<juce::AudioDeviceManager>();
-				device_manager_->initialise(0, 2, nullptr, true);
+				device_manager_->initialiseWithDefaultDevices(0, 2);
 			});
+			log::println("AudioDeviceManager 초기화 중...");
 			future.wait();
+			log::println("AudioDeviceManager 초기화 완료");
 		}
 		~audio_device_manager()
 		{
-			//메시지 스레드에서 AudioDeviceManager를 파괴해야 한다.
+			log::println("audio_device_manager 소멸자");
 			const auto future = mt_->call_async([this] {
 				device_manager_.reset();
 			});
+			log::println("AudioDeviceManager 해제 중...");
 			future.wait();
+			log::println("AudioDeviceManager 해제 완료");
+		}
+
+		std::unique_ptr<juce::AudioDeviceManager>& get()
+		{
+			return device_manager_;
 		}
 	};
+
+	class audio_device : public ID<audio_device>
+	{
+	private:
+
+	};
+
+	class audio_source : public ID<audio_source>
+	{
+	private:
+		std::shared_ptr<juce::AudioBuffer<float>> buffer_;
+	};
+
+
 }
 
 //static auto mt_ = message_thread::get();
 //static auto mu_t = mutex_test::get();
 
-//MainMessageThread MMT;
-//static auto adm = std::make_unique<juce::AudioDeviceManager>(); //fail
-//std::unique_ptr<juce::AudioDeviceManager> adm; //success
 
 int test1()
 {
-	// //adm = std::make_unique<juce::AudioDeviceManager>(); //JUCE_ASSERT_MESSAGE_THREAD!!!
-	//
-	// //<<message_thread setting>>
-	// MainMessageThread MMT;
-	// juce::MessageManager::callAsync([] {
-	// 	adm = std::make_unique<juce::AudioDeviceManager>(); //success
-	// });
-
-	//MainMessageThread MMT;
-	// auto k = message_thread::get(); // 메시지 스레드 활성화
-	// log::println("k.use_count() = " + std::to_string(k.use_count()));
-	// {
-	// 	//audio_device_manager adm;
-	// 	//juce::AudioDeviceManager adm;
-	// 	MainMessageThread MMT;
-	// 	// //message_thread::activate();
-	//	juce::MessageManager::callAsync([] {
-	//		// log::println("callAsync");
-	//		// auto adm = std::make_unique<juce::AudioDeviceManager>();
-	//		// juce::Thread::sleep(1000);
-	//		juce::MidiDeviceListConnection midiDeviceListConnection = juce::MidiDeviceListConnection::make([] {
-	//			log::println("MidiDeviceListConnection");
-	//		});
-	//	});
-	// 	// juce::Thread::sleep(2000);
-	// 	//message_thread::deactivate();
-	// }
 	int a;
-	// cin >> a;
 
-	//message_thread::deactivate();
 	//juce::AudioDeviceManager deviceManager;
-	//
+	audio_device_manager adm;
+	auto& deviceManager = *adm.get();
+	deviceManager.initialiseWithDefaultDevices(0, 2);
 
-	juce::AudioDeviceManager deviceManager;
-
-	//audio_device_manager adm;
 	juce::AudioFormatManager formatManager;
 	formatManager.registerBasicFormats();
 	juce::File file(audio_file_path.file1);
 	auto reader = formatManager.createReaderFor(file);
-	deviceManager.initialiseWithDefaultDevices(0, 2);
 	auto newSource = std::make_unique<juce::AudioFormatReaderSource> (reader, true);
 	juce::AudioTransportSource transportSource;
 	transportSource.setSource(newSource.get(), 0, nullptr, reader->sampleRate);
@@ -109,7 +90,6 @@ int test1()
 	audioSourcePlayer.setSource(&transportSource);
 	deviceManager.addAudioCallback(&audioSourcePlayer);
 
-	cin >> a;
 	transportSource.start();
 	transportSource.setGain(0.5f);
 
@@ -150,23 +130,6 @@ int test1()
 			juce::Thread::sleep(1000);
 		}
 	}
-
-	//deviceManager.initialise(0, 2, nullptr, true);
-
-	// // auto test_time = 1us + 1us;
-	// // test_time += 1s;
-	//
-	// using duration1 = std::chrono::microseconds;
-	// using duration2 = std::chrono::duration<int, std::ratio<1, 125000>>;
-	//
-	// duration1 d1(1);
-	// duration2 d2(1);
-	//
-	// d1 += d2;
-	// cout << d1.count() << endl;
-	//
-	// //대기
-	// int a;
-	// cin >> a;
+	//juce::JUCEApplicationBase::shutdown()
 	return 0;
 }
