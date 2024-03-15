@@ -27,6 +27,7 @@
 #include <memory>
 #include <format>
 #include <mutex>
+#include <shared_mutex>
 
 
 namespace uniq
@@ -70,7 +71,67 @@ namespace uniq
 			return message_temp;
 		}
 	};
-	
+
+	class spin_lock
+	{
+		std::atomic_flag flag_ = ATOMIC_FLAG_INIT;
+	public:
+		spin_lock() = default;
+		~spin_lock() = default;
+		spin_lock(const spin_lock&) = delete;
+		spin_lock& operator=(const spin_lock&) = delete;
+		spin_lock(spin_lock&&) = delete;
+		spin_lock& operator=(spin_lock&&) = delete;
+
+		void lock();
+		bool try_lock() noexcept;
+		void unlock();
+	};
+
+	//shared_recursive_timed_mutex_legacy
+	class shared_recursive_timed_mutex_legacy
+	{
+		std::shared_timed_mutex mutex_;
+		spin_lock member_access_lock_;
+		std::atomic<std::thread::id> writer_;
+		std::unordered_map<std::thread::id, std::atomic_size_t> reader_;
+		std::atomic_size_t writer_count_;
+
+	public:
+		shared_recursive_timed_mutex_legacy() : writer_(std::thread::id()), writer_count_(0) {}
+		~shared_recursive_timed_mutex_legacy() = default;
+		shared_recursive_timed_mutex_legacy(const shared_recursive_timed_mutex_legacy&) = delete;
+		shared_recursive_timed_mutex_legacy& operator=(const shared_recursive_timed_mutex_legacy&) = delete;
+		// shared_recursive_timed_mutex(shared_recursive_timed_mutex&&) noexcept;
+		// shared_recursive_timed_mutex& operator=(shared_recursive_timed_mutex&&) noexcept;
+
+		// exclusive lock
+		void lock();
+		bool try_lock() noexcept;
+		template<class Rep, class Period>
+		bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
+		template<class Clock, class Duration>
+		bool try_lock_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
+		void unlock();
+
+		// shared lock
+		void lock_shared();
+		bool try_lock_shared() noexcept;
+		template<class Rep, class Period>
+		bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
+		template<class Clock, class Duration>
+		bool try_lock_shared_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
+		void unlock_shared();
+	};
+
+	//shared_recursive_timed_mutex
+	class shared_recursive_timed_mutex
+	{
+		std::shared_timed_mutex mutex_;
+		std::atomic<std::thread::id> writer_;
+		std::unordered_map<std::thread::id, std::atomic_size_t> reader_;
+		std::atomic_size_t writer_count_;
+	};
 	
 	//ID_manager는 ID<T>를 상속받은 객체를 관리합니다.
 	class ID_manager final

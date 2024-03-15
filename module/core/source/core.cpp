@@ -10,12 +10,126 @@ namespace uniq
 {
 	std::string log::message_temp;
 	std::string log::message;
-	
+
+#pragma region spin_lock
+	void spin_lock::lock()
+	{
+		while (flag_.test_and_set(std::memory_order_acquire))
+		{
+			while (flag_.test(std::memory_order_relaxed));
+				// std::this_thread::yield();
+		}
+	}
+
+	bool spin_lock::try_lock() noexcept
+	{
+		return !flag_.test_and_set(std::memory_order_acquire);
+	}
+
+	void spin_lock::unlock()
+	{
+		flag_.clear(std::memory_order_release);
+	}
+#pragma endregion spin_lock
+
+#pragma region shared_recursive_timed_mutex_legacy
+	void shared_recursive_timed_mutex_legacy::lock()
+	{
+		const auto this_id = this_thread::get_id();
+		unique_lock lock(member_access_lock_);
+		if (writer_ == this_id)
+		{
+			++writer_count_;
+			return;
+		}
+		if (reader_.contains(this_id)) // 이미 읽기 잠금을 가지고 있는 경우
+		{
+			mutex_.unlock_shared();
+		}
+		lock.unlock();
+		mutex_.lock();
+		lock.lock();
+		writer_ = this_id;
+		writer_count_ = 1;
+	}
+
+	bool shared_recursive_timed_mutex_legacy::try_lock() noexcept
+	{
+		const auto this_id = this_thread::get_id();
+		unique_lock lock(member_access_lock_);
+		if (writer_ == this_id)
+		{
+			++writer_count_;
+			return true;
+		}
+		if (reader_.contains(this_id)) // 이미 읽기 잠금을 가지고 있는 경우
+		{
+			mutex_.unlock_shared();
+		}
+		if (mutex_.try_lock())
+		{
+			writer_ = this_id;
+			writer_count_ = 1;
+			return true;
+		}
+		return false;
+	}
+
+	void shared_recursive_timed_mutex_legacy::unlock()
+	{
+		const auto this_id = this_thread::get_id();
+		unique_lock lock(member_access_lock_);
+		if (writer_ == this_id)
+		{
+			if (--writer_count_ <= 0)
+			{
+				writer_ = std::thread::id();
+				writer_count_ = 0;
+				mutex_.unlock();
+				if (reader_.contains(this_id))
+				{
+					lock.unlock(); //데드락 방지
+					mutex_.lock_shared();
+				}
+			}
+		}
+	}
+
+	void shared_recursive_timed_mutex_legacy::lock_shared()
+	{
+		const auto this_id = this_thread::get_id();
+		unique_lock lock(member_access_lock_);
+		if (writer_ == this_id)
+		{
+			auto [it, inserted] = reader_.try_emplace(this_id, 1);
+			if (!inserted)
+			{
+				++it->second;
+			}
+			return;
+		}
+		const auto reader_it = reader_.find(this_id);
+		if (reader_it != reader_.end())
+		{
+			++reader_it->second;
+			return;
+		}
+		lock.unlock();
+		mutex_.lock_shared();
+		lock.lock();
+		reader_.emplace(this_id, 1);
+	}
+#pragma endregion shared_recursive_timed_mutex_legacy
+
+#pragma region shared_recursive_timed_mutex
+
+#pragma endregion shared_recursive_timed_mutex
+
 #pragma region ID_manager
 	std::size_t ID_manager::id_ = 0;
 	std::unordered_map<std::size_t, std::any> ID_manager::registry_;
 	juce::SpinLock ID_manager::lock_;
-	
+
 	std::size_t ID_manager::generate_ID()
 	{
 		juce::SpinLock::ScopedLockType scoped_lock(lock_);

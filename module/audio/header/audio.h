@@ -9,5 +9,16 @@
 
 namespace uniq
 {
+	namespace internal
+	{
+		class audio_custom_source : public juce::AudioSource
+		{
+
+		public:
+			void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
+			void releaseResources() override;
+			void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+		};
+	}
 
 }

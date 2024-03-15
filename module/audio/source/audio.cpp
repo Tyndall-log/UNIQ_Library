@@ -3,11 +3,32 @@
 
 #include "audio.h"
 
+#include <shared_mutex>
+
 using namespace std;
 using namespace juce;
 
 namespace uniq
 {
+	namespace internal
+	{
+		void audio_custom_source::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
+		{
+			log::println("audio_custom_source::prepareToPlay");
+		}
+
+		void audio_custom_source::releaseResources()
+		{
+			log::println("audio_custom_source::releaseResources");
+		}
+
+		void audio_custom_source::getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill)
+		{
+			log::println("audio_custom_source::getNextAudioBlock");
+			// AudioBuffer<float>
+		}
+	}
+
 	class audio : public ID<audio>
 	{
 	private:
@@ -18,4 +39,6 @@ namespace uniq
 	{
 
 	};
+
+
 }

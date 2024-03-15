@@ -7,9 +7,9 @@ int main()
 {
 	system("chcp 65001"); //한글 설정
 	
-	test1();
-	//test2();
-	//test3();
+	// test1();
+	// test2();
+	lock_test();
 	
 	return 0;
 }
