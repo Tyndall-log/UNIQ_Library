@@ -16,9 +16,11 @@
 //#include <juce_gui_basics/components/juce_Component.h>
 
 #include "core.hpp"
+#include "lock.h"
+#include "log.h"
+#include <thread>
 #include <string>
 #include <algorithm>
-#include <iostream>
 #include <ranges>
 #include <unordered_map>
 #include <any>
@@ -37,56 +39,6 @@ namespace uniq
 #else
 #define API extern "C" __attribute__((visibility("default")))
 #endif
-	
-	class log
-	{
-	public:
-		static std::string message_temp;
-		static std::string message;
-		
-		static void print(std::string_view str)
-		{
-			message += str;
-			#ifdef ANDROID
-			__android_log_print(ANDROID_LOG_INFO, "uniq", "%s", str.data());
-			#else
-			std::cout << str;
-			#endif
-		}
-		
-		static void println(std::string_view str)
-		{
-			print(str);
-			message += "\n";
-			#ifndef ANDROID
-			std::cout << std::endl;
-			#endif
-			
-		}
-		
-		static std::string& get()
-		{
-			message_temp = message;
-			message.clear();
-			return message_temp;
-		}
-	};
-
-	class spin_lock
-	{
-		std::atomic_flag flag_ = ATOMIC_FLAG_INIT;
-	public:
-		spin_lock() = default;
-		~spin_lock() = default;
-		spin_lock(const spin_lock&) = delete;
-		spin_lock& operator=(const spin_lock&) = delete;
-		spin_lock(spin_lock&&) = delete;
-		spin_lock& operator=(spin_lock&&) = delete;
-
-		void lock();
-		bool try_lock() noexcept;
-		void unlock();
-	};
 
 	//shared_recursive_timed_mutex_legacy
 	class shared_recursive_timed_mutex_legacy

@@ -8,30 +8,6 @@ using namespace juce;
 
 namespace uniq
 {
-	std::string log::message_temp;
-	std::string log::message;
-
-#pragma region spin_lock
-	void spin_lock::lock()
-	{
-		while (flag_.test_and_set(std::memory_order_acquire))
-		{
-			while (flag_.test(std::memory_order_relaxed));
-				// std::this_thread::yield();
-		}
-	}
-
-	bool spin_lock::try_lock() noexcept
-	{
-		return !flag_.test_and_set(std::memory_order_acquire);
-	}
-
-	void spin_lock::unlock()
-	{
-		flag_.clear(std::memory_order_release);
-	}
-#pragma endregion spin_lock
-
 #pragma region shared_recursive_timed_mutex_legacy
 	void shared_recursive_timed_mutex_legacy::lock()
 	{
