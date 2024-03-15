@@ -3,6 +3,8 @@
 
 #include "lock.h"
 
+#include <iostream>
+
 using namespace std;
 
 namespace uniq
@@ -278,7 +280,7 @@ namespace uniq
 
 		//현재 상태의 경우의 수
 		//e:x -> s:x -> ec ? e_notify : (e_q < s_q ? e_notify : s_notify)
-		//       s:다른 -> ec ? 무시 : s_notify
+		//       s:다른 -> ec ? 무시 : (e_q < s_q ? 무시 : s_notify)
 		//e:나 -> s:x -> 무시
 		if (exclusive_owner_ == this_id)
 			return;
@@ -292,7 +294,8 @@ namespace uniq
 			    || shared_queue_.empty()
 			    || exclusive_queue_.top() < shared_queue_.top())
 			{
-				exclusive_wake_up();
+				if (shared_owners_.empty())
+					exclusive_wake_up();
 			}
 			else
 			{
