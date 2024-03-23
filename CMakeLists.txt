@@ -83,6 +83,7 @@ endif()
 add_subdirectory(module/core)  #core 모듈 추가
 add_subdirectory(module/launchpad)  #launchpad 모듈 추가
 add_subdirectory(module/audio)  #audio 모듈 추가
+add_subdirectory(module/workspace)  #workspace 모듈 추가
 
 add_compile_definitions(JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
 #include_directories(${juce_SOURCE_DIR}/modules)

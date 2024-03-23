@@ -4,29 +4,59 @@
 
 #include "log.h"
 
+using namespace std;
+
 namespace uniq
 {
-	std::string log::message_temp;
-	std::string log::message;
+	string log::message_temp;
+	string log::message;
 
 	void log::print(std::string_view str)
 	{
+		lock_guard lock(sl);
 		message += str;
 #ifdef ANDROID
-			__android_log_print(ANDROID_LOG_INFO, "uniq", "%s", str.data());
+		__android_log_print(ANDROID_LOG_INFO, "uniq", "%s", str.data());
 #else
-		std::cout << str;
+		cout << str;
 #endif
 	}
 
-	void log::println(std::string_view str)
+	void log::println(const std::string_view str)
 	{
-		print(str);
-		message += "\n";
-#ifndef ANDROID
-		std::cout << std::endl;
+		lock_guard lock(sl);
+		string s;
+		s += str;
+		message += s + "\n";
+#ifdef ANDROID
+		__android_log_print(ANDROID_LOG_INFO, "uniq", "%s", s.data());
+#else
+		cout << s + "\n";
 #endif
+	}
 
+	void log::info(const std::string_view str)
+	{
+		lock_guard lock(sl);
+		string s = "[Info]: ";
+		s += str;
+		println(str);
+	}
+
+	void log::warn(const std::string_view str)
+	{
+		lock_guard lock(sl);
+		string s = "[Warn]: ";
+		s += str;
+		println(str);
+	}
+
+	void log::error(const std::string_view str)
+	{
+		lock_guard lock(sl);
+		string s = "[Error]: ";
+		s += str;
+		println(str);
 	}
 
 	std::string & log::get()

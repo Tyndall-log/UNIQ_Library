@@ -168,13 +168,59 @@ namespace uniq
 			return id_;
 		}
 	};
+
+	enum class callback_mode : std::uint8_t
+	{
+		change_before,
+		change_after,
+		remove_before,
+	};
+
+	template<typename T>
+	class callback_event
+	{
+		std::map<callback_mode, std::vector<std::function<void(const T&)>>> callback_list_;
+	public:
+		callback_event() = default;
+		~callback_event() = default;
+		// callback_event(const callback_event&) = delete;
+		// callback_event& operator=(const callback_event&) = delete;
+		// callback_event(callback_event&&) = delete;
+		// callback_event& operator=(callback_event&&) = delete;
+		void add_callback(std::function<void(const T&)> callback, callback_mode mode)
+		{
+			callback_list_[mode].emplace_back(callback);
+		}
+		void call_callback(const T& t, callback_mode mode)
+		{
+			for (const auto &callback : callback_list_[mode])
+			{
+				callback(t);
+			}
+		}
+		bool remove_callback(std::function<void(const T&)> callback, callback_mode mode)
+		{
+			auto list_it = callback_list_.find(mode);
+			if (list_it == callback_list_.end())
+				return false;
+			auto it = std::find(list_it->second.begin(), list_it->second.end(), callback);
+			if (it == list_it->second.end())
+				return false;
+			return true;
+		}
+	};
+
+	class check_event
+	{
+		std::vector<std::function<bool()>> callback_list_;
+	};
 	
 	class hierarchy
 	{
 	private:
 		enum class mode : std::uint8_t { add, remove };
 		static std::size_t relationship_id_; //0은 무효한 ID입니다.
-		std::vector<std::function<void(std::any, mode)>> chain_func_list_;
+		std::vector<std::function<void(std::any, mode)>> chain_func_list_; //chain 자동 등록/해제용 함수
 		std::vector<hierarchy*> child_list_;
 		std::vector<hierarchy*> parent_list_;
 	protected:
@@ -248,14 +294,15 @@ namespace uniq
 			parent_data parent_list_;
 			std::vector<parent_data*> parent_priority_list_; //인덱스가 높을수록 우선순위가 높습니다.
 			std::map<std::type_index, parent_data*> parent_priority_map_;
-			
+
+			// sync_type_register는 부모 자식이 맺어졌을 때, chain을 자동 등록하는 알고리즘을 할당하는 함수입니다.
 			template<typename K>
 			void sync_type_register(chain<T> K::* member_ptr)
 			{
 				if (auto [iter, inserted] = child_map_.try_emplace(typeid(K*)); inserted)
 				{
-					auto& data = iter->second;
-					data.child_add = [this, &data, member_ptr](std::any class_ptr_any)
+					child_data& data = iter->second;
+					data.child_add = [this, &data, member_ptr](const std::any &class_ptr_any)
 					{
 						auto class_ptr = std::any_cast<K*>(class_ptr_any);
 						auto chain_ptr = &(class_ptr->*member_ptr);
@@ -337,7 +384,7 @@ namespace uniq
 			chain(hierarchy* parent, T value) : chain(parent, value, false){};
 			template<typename... Others>
 			requires (... && std::is_member_pointer_v<Others>) // Others는 chain<T> K::* 형식의 멤버 포인터여야 합니다.
-			chain(hierarchy* parent, T value, bool sync, Others... others)
+			chain(hierarchy* parent, T value, const bool sync, Others... others)
 			{
 				//parent_ = parent;
 				value_ = std::make_shared<T>(value);

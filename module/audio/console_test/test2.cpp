@@ -10,62 +10,6 @@ namespace test_ns2
 {
 	using namespace uniq;
 
-	class shared_recursive_timed_mutex
-	{
-		std::shared_timed_mutex mutex_;
-		std::atomic<std::thread::id> writer_;
-		std::unordered_map<std::thread::id, std::atomic_size_t> reader_;
-		std::atomic_size_t writer_count_;
-
-	public:
-		shared_recursive_timed_mutex() : writer_(std::thread::id()), writer_count_(0) {}
-		~shared_recursive_timed_mutex() = default;
-		shared_recursive_timed_mutex(const shared_recursive_timed_mutex&) = delete;
-		shared_recursive_timed_mutex& operator=(const shared_recursive_timed_mutex&) = delete;
-		// shared_recursive_timed_mutex(shared_recursive_timed_mutex&&) noexcept;
-		// shared_recursive_timed_mutex& operator=(shared_recursive_timed_mutex&&) noexcept;
-
-		// exclusive lock
-		void lock()
-		{
-			const auto this_id = std::this_thread::get_id();
-			if (writer_ == this_id)
-			{
-				++writer_count_;
-				return;
-			}
-			mutex_.lock();
-			writer_ = this_id;
-			writer_count_ = 1;
-		}
-		bool try_lock() noexcept;
-		template<class Rep, class Period>
-		bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
-		template<class Clock, class Duration>
-		bool try_lock_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
-		void unlock()
-		{
-			const auto this_id = std::this_thread::get_id();
-			if (writer_ == this_id)
-			{
-				if (--writer_count_ == 0)
-				{
-					writer_ = std::thread::id();
-					mutex_.unlock();
-				}
-			}
-		}
-
-		// shared lock
-		void lock_shared();
-		bool try_lock_shared() noexcept;
-		template<class Rep, class Period>
-		bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
-		template<class Clock, class Duration>
-		bool try_lock_shared_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
-		void unlock_shared();
-	};
-
 	class audio_device_manager : public ID<audio_device_manager>
 	{
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
@@ -174,7 +118,7 @@ int test2()
 {
 	using namespace test_ns2;
 	auto mt = uniq::message_thread::get();
-	audio_source as(audio_file_path.file2);
+	test_ns2::audio_source as(audio_file_path.file2);
 
 	audio_device_manager adm;
 	int a;

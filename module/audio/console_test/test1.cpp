@@ -50,18 +50,6 @@ namespace uniq
 		}
 	};
 
-	class audio_device : public ID<audio_device>
-	{
-	private:
-
-	};
-
-	class audio_source : public ID<audio_source>
-	{
-	private:
-		std::shared_ptr<juce::AudioBuffer<float>> buffer_;
-	};
-
 
 }
 

@@ -37,7 +37,6 @@ namespace uniq
 			std::chrono::time_point<std::chrono::steady_clock> time_ = std::chrono::steady_clock::now();
 			std::atomic_flag flag_ = {};
 
-			//우주선 연산자
 			std::strong_ordering operator<=>(const qd& other) const;
 		};
 
