@@ -31,7 +31,7 @@ function(link_library target)  #라이브러리 링크 함수
 endfunction()
 
 file(GLOB CONSOLE_TEST_FILES console_test/*.cpp)  #console_test 폴더 내의 모든 cpp 파일을 찾습니다.
-add_executable(UNIQ_Library_audio_test ${CONSOLE_TEST_FILES} ${SOURCE_FILES})  #실행 파일 생성
+add_executable(UNIQ_Library_audio_test ${CONSOLE_TEST_FILES} ${SOURCE_FILES} header)  #실행 파일 생성
 target_include_directories(UNIQ_Library_audio_test PUBLIC header)  #실행 파일에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_audio_test)  #라이브러리 링크
 

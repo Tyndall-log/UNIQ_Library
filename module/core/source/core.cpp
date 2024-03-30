@@ -8,121 +8,29 @@ using namespace juce;
 
 namespace uniq
 {
-#pragma region shared_recursive_timed_mutex_legacy
-	void shared_recursive_timed_mutex_legacy::lock()
-	{
-		const auto this_id = this_thread::get_id();
-		unique_lock lock(member_access_lock_);
-		if (writer_ == this_id)
-		{
-			++writer_count_;
-			return;
-		}
-		if (reader_.contains(this_id)) // 이미 읽기 잠금을 가지고 있는 경우
-		{
-			mutex_.unlock_shared();
-		}
-		lock.unlock();
-		mutex_.lock();
-		lock.lock();
-		writer_ = this_id;
-		writer_count_ = 1;
-	}
-
-	bool shared_recursive_timed_mutex_legacy::try_lock() noexcept
-	{
-		const auto this_id = this_thread::get_id();
-		unique_lock lock(member_access_lock_);
-		if (writer_ == this_id)
-		{
-			++writer_count_;
-			return true;
-		}
-		if (reader_.contains(this_id)) // 이미 읽기 잠금을 가지고 있는 경우
-		{
-			mutex_.unlock_shared();
-		}
-		if (mutex_.try_lock())
-		{
-			writer_ = this_id;
-			writer_count_ = 1;
-			return true;
-		}
-		return false;
-	}
-
-	void shared_recursive_timed_mutex_legacy::unlock()
-	{
-		const auto this_id = this_thread::get_id();
-		unique_lock lock(member_access_lock_);
-		if (writer_ == this_id)
-		{
-			if (--writer_count_ <= 0)
-			{
-				writer_ = std::thread::id();
-				writer_count_ = 0;
-				mutex_.unlock();
-				if (reader_.contains(this_id))
-				{
-					lock.unlock(); //데드락 방지
-					mutex_.lock_shared();
-				}
-			}
-		}
-	}
-
-	void shared_recursive_timed_mutex_legacy::lock_shared()
-	{
-		const auto this_id = this_thread::get_id();
-		unique_lock lock(member_access_lock_);
-		if (writer_ == this_id)
-		{
-			auto [it, inserted] = reader_.try_emplace(this_id, 1);
-			if (!inserted)
-			{
-				++it->second;
-			}
-			return;
-		}
-		const auto reader_it = reader_.find(this_id);
-		if (reader_it != reader_.end())
-		{
-			++reader_it->second;
-			return;
-		}
-		lock.unlock();
-		mutex_.lock_shared();
-		lock.lock();
-		reader_.emplace(this_id, 1);
-	}
-#pragma endregion shared_recursive_timed_mutex_legacy
-
-#pragma region shared_recursive_timed_mutex
-
-#pragma endregion shared_recursive_timed_mutex
 
 #pragma region ID_manager
-	std::size_t ID_manager::id_ = 0;
-	std::unordered_map<std::size_t, std::any> ID_manager::registry_;
-	juce::SpinLock ID_manager::lock_;
+	id_t ID_manager::id_ = 0;
+	std::unordered_map<id_t, std::any> ID_manager::registry_;
+	SpinLock ID_manager::lock_;
 
-	std::size_t ID_manager::generate_ID()
+	id_t ID_manager::generate_ID()
 	{
-		juce::SpinLock::ScopedLockType scoped_lock(lock_);
-		std::size_t id = ++id_;
+		SpinLock::ScopedLockType scoped_lock(lock_);
+		id_t id = ++id_;
 		registry_.emplace(id, std::any());
 		return id;
 	}
 	
-	void ID_manager::unregister_ID(std::size_t id)
+	void ID_manager::unregister_ID(id_t id)
 	{
-		juce::SpinLock::ScopedLockType scoped_lock(lock_);
+		SpinLock::ScopedLockType scoped_lock(lock_);
 		registry_.erase(id);
 	}
 #pragma endregion ID_manager
 
 #pragma region hierarchy
-	std::size_t hierarchy::relationship_id_ = 0;
+	id_t hierarchy::relationship_id_ = 0;
 	
 	hierarchy::~hierarchy()
 	{
@@ -138,7 +46,7 @@ namespace uniq
 #pragma endregion hierarchy
 	
 	/*template<typename T>
-	juce::SpinLock ID<T>::lock;*/
+	SpinLock ID<T>::lock;*/
 	
 	MainMessageThread::MainMessageThread() : Thread("UNIQ_MessageThread")
 	{

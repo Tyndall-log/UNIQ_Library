@@ -18,6 +18,7 @@
 #include "core.hpp"
 #include "lock.h"
 #include "log.h"
+#include "event.h"
 #include <thread>
 #include <string>
 #include <algorithm>
@@ -40,71 +41,28 @@ namespace uniq
 #define API extern "C" __attribute__((visibility("default")))
 #endif
 
-	//shared_recursive_timed_mutex_legacy
-	class shared_recursive_timed_mutex_legacy
-	{
-		std::shared_timed_mutex mutex_;
-		spin_lock member_access_lock_;
-		std::atomic<std::thread::id> writer_;
-		std::unordered_map<std::thread::id, std::atomic_size_t> reader_;
-		std::atomic_size_t writer_count_;
+	using id_t = std::size_t;
 
-	public:
-		shared_recursive_timed_mutex_legacy() : writer_(std::thread::id()), writer_count_(0) {}
-		~shared_recursive_timed_mutex_legacy() = default;
-		shared_recursive_timed_mutex_legacy(const shared_recursive_timed_mutex_legacy&) = delete;
-		shared_recursive_timed_mutex_legacy& operator=(const shared_recursive_timed_mutex_legacy&) = delete;
-		// shared_recursive_timed_mutex(shared_recursive_timed_mutex&&) noexcept;
-		// shared_recursive_timed_mutex& operator=(shared_recursive_timed_mutex&&) noexcept;
-
-		// exclusive lock
-		void lock();
-		bool try_lock() noexcept;
-		template<class Rep, class Period>
-		bool try_lock_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
-		template<class Clock, class Duration>
-		bool try_lock_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
-		void unlock();
-
-		// shared lock
-		void lock_shared();
-		bool try_lock_shared() noexcept;
-		template<class Rep, class Period>
-		bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout_duration) = delete; //not implemented
-		template<class Clock, class Duration>
-		bool try_lock_shared_until(const std::chrono::time_point<Clock, Duration>& timeout_time) = delete; //not implemented
-		void unlock_shared();
-	};
-
-	//shared_recursive_timed_mutex
-	class shared_recursive_timed_mutex
-	{
-		std::shared_timed_mutex mutex_;
-		std::atomic<std::thread::id> writer_;
-		std::unordered_map<std::thread::id, std::atomic_size_t> reader_;
-		std::atomic_size_t writer_count_;
-	};
-	
 	//ID_manager는 ID<T>를 상속받은 객체를 관리합니다.
 	class ID_manager final
 	{
 		template<typename T> friend class ID;
-		static std::unordered_map<std::size_t, std::any> registry_;
-		//static std::unordered_map<std::size_t, std::any> memory
-		static std::size_t id_; //0은 무효한 ID입니다.
+		static std::unordered_map<id_t, std::any> registry_;
+		//static std::unordered_map<id_t, std::any> memory
+		static id_t id_; //0은 무효한 ID입니다.
 		static juce::SpinLock lock_;
 	private:
-		static std::size_t generate_ID();
+		static id_t generate_ID();
 		template<typename T>
-		static void register_ID(std::size_t id, std::shared_ptr<T> obj)
+		static void register_ID(id_t id, std::shared_ptr<T> obj)
 		{
 			juce::SpinLock::ScopedLockType scoped_lock(lock_);
 			registry_[id] = std::weak_ptr<T>(obj);
 		}
-		static void unregister_ID(std::size_t id);
+		static void unregister_ID(id_t id);
 	public:
 		template<typename T>
-		static std::optional<std::shared_ptr<T>> get_shared_ptr_by_ID(std::size_t id)
+		static std::optional<std::shared_ptr<T>> get_shared_ptr_by_ID(id_t id)
 		{
 			juce::SpinLock::ScopedLockType scoped_lock(lock_);
 			if (id == 0) return std::nullopt;
@@ -127,16 +85,17 @@ namespace uniq
 			return std::nullopt;
 		}
 	};
-	
+
 	//public ID<T> 상속을 통해 ID_manager에 ID를 생성하고 등록하는 클래스를 만듭니다.
 	//부여 받은 ID는 ID_manager를 통해 해당 객체를 참조할 수 있습니다.
 	//해당 클래스는 shared_ptr를 위해 ID<T>::create()를 통해 객체를 생성하도록 강제하므로,
 	//객체가 임의로 생성되지 않도록 생성자를 private로 선언하는 것을 권장합니다.
 	template<typename T> class ID
 	{
+	public:
 		//TODO: create()를 경유하지 않은 객체를 생성할 수 없게 함.
 	private:
-		std::size_t id_ = 0; //0은 무효한 ID입니다.
+		id_t id_ = 0; //0은 무효한 ID입니다.
 	protected:
 		ID() : id_(ID_manager::generate_ID()) {};
 		~ID()
@@ -149,7 +108,7 @@ namespace uniq
 		{
 			//make_shared에 프라이빗 생성자를 사용하기 위한 구조체
 			//컴파일 최적화로 MakeSharedEnabler의 오버 헤드는 없음.
-			struct make_shared_enabler : public T
+			struct make_shared_enabler : T
 			{
 				explicit make_shared_enabler(K &&...args) : T(std::forward<K>(args)...) {}
 			};
@@ -163,64 +122,18 @@ namespace uniq
 		ID& operator=(const ID&) = delete;
 		ID(ID&&) = delete;
 		ID& operator=(ID&&) = delete;
-		[[nodiscard]] size_t ID_get() const
+		[[nodiscard]] id_t ID_get() const
 		{
 			return id_;
 		}
-	};
-
-	enum class callback_mode : std::uint8_t
-	{
-		change_before,
-		change_after,
-		remove_before,
-	};
-
-	template<typename T>
-	class callback_event
-	{
-		std::map<callback_mode, std::vector<std::function<void(const T&)>>> callback_list_;
-	public:
-		callback_event() = default;
-		~callback_event() = default;
-		// callback_event(const callback_event&) = delete;
-		// callback_event& operator=(const callback_event&) = delete;
-		// callback_event(callback_event&&) = delete;
-		// callback_event& operator=(callback_event&&) = delete;
-		void add_callback(std::function<void(const T&)> callback, callback_mode mode)
-		{
-			callback_list_[mode].emplace_back(callback);
-		}
-		void call_callback(const T& t, callback_mode mode)
-		{
-			for (const auto &callback : callback_list_[mode])
-			{
-				callback(t);
-			}
-		}
-		bool remove_callback(std::function<void(const T&)> callback, callback_mode mode)
-		{
-			auto list_it = callback_list_.find(mode);
-			if (list_it == callback_list_.end())
-				return false;
-			auto it = std::find(list_it->second.begin(), list_it->second.end(), callback);
-			if (it == list_it->second.end())
-				return false;
-			return true;
-		}
-	};
-
-	class check_event
-	{
-		std::vector<std::function<bool()>> callback_list_;
 	};
 	
 	class hierarchy
 	{
 	private:
-		enum class mode : std::uint8_t { add, remove };
-		static std::size_t relationship_id_; //0은 무효한 ID입니다.
-		std::vector<std::function<void(std::any, mode)>> chain_func_list_; //chain 자동 등록/해제용 함수
+		enum class callback_mode : std::uint8_t { add, remove };
+		static id_t relationship_id_; //0은 무효한 ID입니다.
+		std::vector<std::function<void(std::any, callback_mode)>> chain_func_list_; //chain 자동 등록/해제용 함수
 		std::vector<hierarchy*> child_list_;
 		std::vector<hierarchy*> parent_list_;
 	protected:
@@ -229,7 +142,7 @@ namespace uniq
 		{
 			struct chain_id
 			{
-				std::size_t id;
+				id_t id;
 				chain<T>* ptr;
 			};
 			
@@ -260,7 +173,7 @@ namespace uniq
 					}
 				}
 				
-				void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, std::size_t id)
+				void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, id_t id)
 				{
 					if (auto [iter, inserted] = parent_map.try_emplace(class_ptr, new chain_id{id, chain_ptr}); inserted)
 					{
@@ -275,7 +188,7 @@ namespace uniq
 						auto id = it->second->id;
 						parent_map.erase(it);
 						auto iter = std::lower_bound(parent_list.begin(), parent_list.end(), id,
-													 [](const chain_id* a, std::size_t b) { return a->id < b; });
+													 [](const chain_id* a, id_t b) { return a->id < b; });
 						if (iter != parent_list.end())
 						{
 							//속도를 위해 지연 삭제 구현 필요
@@ -314,7 +227,7 @@ namespace uniq
 				}
 			}
 			
-			void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, std::size_t id)
+			void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, id_t id)
 			{
 				if (auto it = parent_priority_map_.find(typeid(class_ptr)); it != parent_priority_map_.end())
 				{
@@ -393,15 +306,15 @@ namespace uniq
 				// 외부에 등록
 				if (parent)
 				{
-					parent->chain_func_list_.emplace_back([&](std::any class_ptr, mode mode)
+					parent->chain_func_list_.emplace_back([&](std::any class_ptr, callback_mode mode)
 					{
 						switch (mode)
 						{
-							case mode::add: // 추가 모드
+							case callback_mode::add: // 추가 모드
 								if (auto it = child_map_.find(class_ptr.type()); it != child_map_.end())
 									it->second.child_add(class_ptr);
 								break;
-							case mode::remove: // 삭제 모드
+							case callback_mode::remove: // 삭제 모드
 								if (auto it = child_map_.find(class_ptr.type()); it != child_map_.end())
 									it->second.child_remove(std::any_cast<hierarchy*>(class_ptr));
 								break;
@@ -495,7 +408,7 @@ namespace uniq
 			child->parent_list_.emplace_back(this);
 			for (auto& f: chain_func_list_)
 			{
-				f(child, mode::add);
+				f(child, callback_mode::add);
 			}
 		}
 		
@@ -505,7 +418,7 @@ namespace uniq
 		{
 			for (auto& f: chain_func_list_)
 			{
-				f(static_cast<hierarchy*>(child), mode::remove);
+				f(static_cast<hierarchy*>(child), callback_mode::remove);
 			}
 		}
 	};
