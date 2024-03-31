@@ -41,7 +41,8 @@ namespace uniq
 			inline static std::shared_ptr<audio::fade::i_fade<float>> default_fade_function_ = std::make_shared<audio::fade::fade_linear<float>>();
 
 			std::chrono::duration<std::int32_t, std::micro> start_time_;
-			std::chrono::duration<std::int32_t, std::micro> duration_;
+			// std::chrono::duration<std::int32_t, std::micro> duration_;
+			std::chrono::duration<std::int32_t, std::micro> end_time_;
 			std::shared_ptr<audio::fade::i_fade<float>> fade_function_ = default_fade_function_;
 			bool reverse_ = false;
 			[[nodiscard]] auto get_gain(const std::chrono::duration<std::int32_t, std::micro>& time) const -> float;
@@ -73,22 +74,37 @@ namespace uniq
 			struct play_data
 			{
 				id_t id_;
-				std::shared_ptr<audio_data> data_;
+				static constexpr uint32_t padding = 8; //buffer_의 좌우 여유 공간(리샘플링 등으로 인한 오버플로 방지)
+				// std::shared_ptr<audio_data> data_;
+				// juce::AudioBuffer<float> buffer_;
+				float **buffer_ = nullptr;
 				std::uint32_t sample_rate_ = 48000;
+				sample_position_t sample_num_ = 0;
+				std::uint8_t channel_num_ = 0;
+				double audio_start_position_delay_; //audio_position_t 단위 (0~1)
 				audio_position_t audio_start_position_ = 0;
-				audio_position_t audio_end_position_ = 0;
-				std::chrono::duration<std::uint32_t, std::micro> start_delay_;
-				audio_position_t sync_start_position_ = 0;
-				audio_position_t sync_end_position_ = 0;
-				sample_position_t start_sample_ = 0;
-				sample_position_t end_sample_ = 0xffffffffui32;
+				audio_position_t audio_end_position_ = 0; //audio_start_position_delay_와 fade_out_ 포함 위치
+				audio_position_t sync_start_position_ = 0; //data_의 시작 샘플 위치
+				audio_position_t sync_end_position_ = 0; //data_의 끝 샘플 위치
+				// sample_position_t start_sample_ = 0;
+				// sample_position_t end_sample_ = 0;
 				fade_low_data fade_in_;
-				fade_low_data fade_out_;
-				struct
+				std::vector<fade_low_data> fade_out_list; //이월 가능
+				float start_gain_ = 0.f; //fade_in_ 시작 시점의 게인(적용 길이에도 영향을 줌)
+				float last_gain_ = 0.f; //fade_in_ 시작 시점의 게인(적용 길이에도 영향을 줌)
+				struct next_s
 				{
-					id_t id = 0;
-					std::shared_ptr<play_data> target; //nullptr: 대상 없음
-				} next;
+					id_t id_ = 0;
+					std::shared_ptr<audio_data> data_;
+					std::uint32_t sample_rate_ = 48000;
+					std::chrono::duration<std::uint32_t, std::micro> pos_; //audio_start_position_ + audio_start_position_delay_에 해당하는 시간
+					sample_position_t start_sample_ = 0;
+					sample_position_t end_sample_ = 0xffffffffui32;
+					bool exist_ = false; //true면 다음 데이터가 존재함(즉, fade_out_ 방지)
+				};
+				std::vector<next_s> next_list; //재생될(pos_) 순서대로 정렬(fade_out_.end_time_내에 있는 모든 데이터 필요)
+
+				~play_data();
 			};
 
 			struct sync_playing_data_compare
@@ -126,31 +142,40 @@ namespace uniq
 			std::unordered_map<id_t, std::set<std::shared_ptr<play_data>, sync_playing_data_compare>> sync_data_map_;
 			std::set<std::shared_ptr<play_data>, sync_playing_data_compare> sync_playing_data_set_;
 			std::set<std::shared_ptr<play_data>, sync_waiting_data_compare> sync_waiting_data_set_;
-			std::set<std::shared_ptr<play_data>, playing_data_compare> playing_data_set_;
-			std::set<std::shared_ptr<play_data>, waiting_data_compare> waiting_data_set_;
+			std::set<std::shared_ptr<play_data>, playing_data_compare> playing_data_set_; //재생했고, 끝나지 않은 것
+			std::set<std::shared_ptr<play_data>, waiting_data_compare> waiting_data_set_; //재생하지 않은 것
 			spin_lock sl_;
 			juce::AudioBuffer<float> buffer_;
+			// std::vector<std::vector<float>> low_buffer_;
+			std::unique_ptr<float[]> low_buffer_;
 			float target_speed_ = 1.0f;
 			float gain_ = 1.0f;
 			double sample_rate_ = 0;
-			audio_position_t sample_position_ = 0;
+			audio_position_t next_sample_position_ = 0; //getNextAudioBlock의 다음 호출에서 시작할 위치
 
-			//반드시 sl_ 잠금 상태에서 호출
+			/// @brief 동기화 목록 갱신
+			/// @warning 반드시 sl_ 잠금 상태에서 호출
 			void sync_refresh();
 
-			//반드시 sl_ 잠금 상태에서 호출
-			void play_refresh();
+			/// @brief 재생할 데이터를 갱신하고, 재생할 데이터를 정리해서 반환
+			/// @warning 반드시 sl_ 잠금 상태에서 호출
+			[[nodiscard]]
+			std::unique_ptr<std::vector<std::vector<std::shared_ptr<play_data>>>> play_refresh();
 
 			//반드시 sl_ 잠금 상태에서 호출
 			void buffer_ready(const int &target_channel_num, const int &target_sample_num);
 
-			void chennal_mapping(std::shared_ptr<play_data>& pd, juce::AudioBuffer<float> &data_buffer, const int &target_channel_num, const int &
+			void chennal_mapping_legacy(std::shared_ptr<play_data>& pd, juce::AudioBuffer<float> &data_buffer, const int &target_channel_num, const int &
 			                     target_sample_num);
+			/// @brief 재생할 데이터를 버퍼에 쓰기
+			/// @return padding이 제외한 시작 위치(padding에 따라 음수 접근이 가능)
+			const float** chennal_mapping();
 
 		public:
 			void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
 			void releaseResources() override;
 			void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+			void getNextAudioBlockLegacy(const juce::AudioSourceChannelInfo& bufferToFill);
 
 			struct add_audio_param
 			{
@@ -175,8 +200,22 @@ namespace uniq
 				struct
 				{
 					fade_low_data in{};
-					fade_low_data out{};
-					id_t out_target = 0; //0: 대상 없음
+
+					// struct out_data
+					// {
+					// 	fade_low_data fade{};
+					//
+					// };
+					// std::vector<fade_low_data> out_list; // out.end_time_전에 재생
+
+					struct out_list_compare
+					{
+						bool operator()(const fade_low_data& a, const fade_low_data& b) const
+						{
+							return a.end_time_ < b.end_time_;
+						}
+					};
+
 				} fade;
 			};
 			auto add_audio(const std::shared_ptr<audio_data>& data, id_t id, add_audio_param param = {}) -> bool;

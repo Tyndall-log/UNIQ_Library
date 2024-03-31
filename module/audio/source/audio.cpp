@@ -46,16 +46,19 @@ namespace uniq
 
 		auto fade_low_data::get_gain(const std::chrono::duration<std::int32_t, std::micro> &time) const -> float
 		{
-			//custom_function_ 사용
 			if (time < start_time_)
 			{
 				return reverse_ ? 1.f : 0.f;
 			}
-			if (start_time_ + duration_ < time)
+			if (end_time_ < time)
 			{
 				return reverse_ ? 0.f : 1.f;
 			}
-			auto t = static_cast<float>(time.count() - start_time_.count()) / static_cast<float>(duration_.count());
+			if (end_time_ == start_time_)
+			{
+				return 0.5f;
+			}
+			auto t = static_cast<float>(time.count() - start_time_.count()) / static_cast<float>(end_time_.count() - start_time_.count());
 			return fade_function_->get_gain(reverse_ ? 1.f - t : t);
 		}
 
@@ -76,13 +79,22 @@ namespace uniq
 
 #pragma region audio_custom_source
 
+		audio_custom_source::play_data::~play_data()
+		{
+			for (int i = 0; i < channel_num_; ++i)
+			{
+				delete[] buffer_[i];
+			}
+			delete[] buffer_;
+		}
+
 		void audio_custom_source::sync_refresh()
 		{
 			//sync_playing_data_set_ 정리
 			while (!sync_playing_data_set_.empty())
 			{
 				auto it = sync_playing_data_set_.begin();
-				if ((*it)->sync_end_position_ < sample_position_)
+				if ((*it)->sync_end_position_ < next_sample_position_)
 				{
 					auto id = (*it)->id_;
 					auto map_it = sync_data_map_.find(id);
@@ -101,7 +113,7 @@ namespace uniq
 			while (!sync_waiting_data_set_.empty())
 			{
 				auto it = sync_waiting_data_set_.begin();
-				if ((*it)->sync_start_position_ <= sample_position_)
+				if ((*it)->sync_start_position_ <= next_sample_position_)
 				{
 					sync_playing_data_set_.insert(*it);
 					sync_data_map_[(*it)->id_].insert(*it);
@@ -111,10 +123,89 @@ namespace uniq
 			}
 		}
 
-		void audio_custom_source::play_refresh()
+		auto audio_custom_source::play_refresh()
+			-> std::unique_ptr<std::vector<std::vector<std::shared_ptr<play_data>>>>
 		{
-			//playing_data_set_ 정리
+			auto combo_list = make_unique<vector<vector<shared_ptr<play_data>>>>();
+			auto waiting_data_map = map<id_t, queue<shared_ptr<play_data>>>();
+
+			//waiting_data_set_ 정리(waiting_data_map으로 이동)
+			while (!waiting_data_set_.empty())
+			{
+				const auto& w_it = waiting_data_set_.begin();
+				auto& w = *w_it;
+				if (next_sample_position_ < w->audio_start_position_)
+					break; //같아도 종료(아직 재생할 수 없음)
+				// waiting_data_map[w->id_].push(w); //최적화
+				const auto& [it, is_inserted] = waiting_data_map.try_emplace(w->id_);
+				it->second.push(w);
+				waiting_data_set_.erase(w_it);
+			}
+
+			for (auto p_it = playing_data_set_.begin(); p_it != playing_data_set_.end();)
+			{
+				auto& p = *p_it;
+				auto& data_buffer = p->buffer_;
+				auto& combo = combo_list->emplace_back();
+				combo.push_back(p);
+				for (const auto& n : p->next_list)
+				{
+					auto it = waiting_data_map.find(n.id_);
+					if (it == waiting_data_map.end())
+						continue;
+					auto& q = it->second;
+					const auto& w = q.front();
+					combo.push_back(w);
+					q.pop();
+					if (q.empty())
+						waiting_data_map.erase(it);
+				}
+
+				if (combo.size() == 1)
+				{
+					++p_it;
+					continue;
+				}
+
+				p_it = playing_data_set_.erase(p_it);
+
+
+				// if (p->audio_end_position_ < next_sample_position_) //오디오가 일찍 끝난 경우
+				// {
+				// 	//다음 오디오 데이터 확인
+				// }
+				// auto rate = p->sample_rate_ / sample_rate_ * target_speed_;
+				// auto position = static_cast<sample_position_t>(p->audio_start_position_ * rate);
+				// auto end_position = static_cast<sample_position_t>(p->audio_end_position_ * rate);
+				// auto& buffer = buffer_;
+			}
+
+			//남은 waiting_data_map 처리
+			for (auto &q: waiting_data_map | views::values)
+			{
+				while (!q.empty())
+				{
+					auto& w = q.front();
+					auto& combo = combo_list->emplace_back();
+					combo.push_back(w);
+					q.pop();
+				}
+			}
+
+			// playing_data_set_ 정리
+			for (auto combo : *combo_list)
+			{
+				const auto& last = combo.back();
+				if (last->audio_end_position_ <= next_sample_position_) //연속 데이터가 끝난 경우
+					continue;
+				playing_data_set_.insert(last);
+			}
+
+			//NOTE: 여기서 fade_out_ 중첩 처리를 해야 할 수도 있음.
+
+			return move(combo_list);
 		}
+
 
 		void audio_custom_source::buffer_ready(const int &target_channel_num, const int &target_sample_num)
 		{
@@ -133,7 +224,7 @@ namespace uniq
 			}
 		}
 
-		void audio_custom_source::chennal_mapping(shared_ptr<play_data>& pd, AudioBuffer<float> &data_buffer, const int &target_channel_num, const int &target_sample_num)
+		void audio_custom_source::chennal_mapping_legacy(shared_ptr<play_data>& pd, AudioBuffer<float> &data_buffer, const int &target_channel_num, const int &target_sample_num)
 		{
 			if (target_channel_num == data_buffer.getNumChannels())
 				return;
@@ -158,12 +249,18 @@ namespace uniq
 			}
 		}
 
+		const float **audio_custom_source::chennal_mapping()
+		{
+			//padding값 자동 채움
+			return nullptr;
+		}
+
 		void audio_custom_source::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 		{
 			// log::info("audio_custom_source::prepareToPlay");
 			unique_lock lock(sl_);
 			sample_rate_ = sampleRate;
-			sample_position_ = 0;
+			next_sample_position_ = 0;
 			buffer_.setSize(2, samplesPerBlockExpected);
 		}
 
@@ -171,7 +268,7 @@ namespace uniq
 		{
 			log::info("audio_custom_source::releaseResources");
 			unique_lock lock(sl_);
-			sample_position_ = 0;
+			next_sample_position_ = 0;
 			sync_data_map_.clear();
 			sync_playing_data_set_.clear();
 			sync_waiting_data_set_.clear();
@@ -182,42 +279,138 @@ namespace uniq
 
 		void audio_custom_source::getNextAudioBlock(const AudioSourceChannelInfo &bufferToFill)
 		{
-			log::info("audio_custom_source::getNextAudioBlock");
-			//https://docs.juce.com/master/classGenericInterpolator.html
+
+		}
+
+		void audio_custom_source::getNextAudioBlockLegacy(const AudioSourceChannelInfo &bufferToFill)
+		{
+			// log::info("audio_custom_source::getNextAudioBlock");
 
 			unique_lock lock(sl_);
-			auto start_sample_position = sample_position_;
-			sample_position_ += bufferToFill.numSamples;
+			auto start_sample_position = next_sample_position_;
+			next_sample_position_ += bufferToFill.numSamples;
 			sync_refresh();
 
-			if (playing_data_set_.empty())
+			auto combo_list = play_refresh();
+
+			if (combo_list->empty())
 			{
 				bufferToFill.clearActiveBufferRegion();
-				play_refresh();
 				return;
 			}
 
-			const auto buffer = bufferToFill.buffer;
-			const auto& target_channel_num = buffer->getNumChannels();
+			const auto output_buffer = bufferToFill.buffer;
+			const auto& target_channel_num = output_buffer->getNumChannels();
 			const auto& target_sample_num = bufferToFill.numSamples;
-
-			auto combo_list = vector<vector<shared_ptr<play_data>>>();
 
 			buffer_ready(target_channel_num, target_sample_num);
 
-			for (auto p : playing_data_set_)
+			for (auto& combo : *combo_list)
 			{
-				shared_lock data_buffer_lock(p->data_->mutex_);
-				auto& data_buffer = p->data_->buffer_;
+				auto output_pos = 0;
+				//combo는 연속 데이터
+				for (auto& p : combo)
+				{
+					//채널 수 맞추기
+					// shared_lock data_buffer_lock(p->data_->mutex_);
+					auto& data_buffer = p->buffer_;
+					// chennal_mapping_legacy(p, data_buffer, target_channel_num, target_sample_num);
+					const auto ppf = chennal_mapping(); //TODO: 새로운 채널 매핑 함수 구현
 
-				chennal_mapping(p, data_buffer, target_channel_num, target_sample_num);
+					//위치 맞추기
+					//출력 오디오 1샘플 초 = 1 / sample_rate_ (s)
+					//입력 오디오 1샘플 초 = 1 / (p->sample_rate_ * target_speed_) (s)
+					//출력 대 입력 비율 = p->sample_rate_ / sample_rate_ * target_speed_
+					auto rate = p->sample_rate_ / sample_rate_ * target_speed_;
+					//출력 오디오 시작 위치 = start_sample_position
+					//출력 오디오에 대한 입력 오디오 시작 위치(offset) = p->audio_start_position_ + audio_start_position_delay_
+
+					//입력 오디오의 첫번째 샘플 위치
+					// = (p->audio_start_position_ - start_sample_position + audio_start_position_delay_) * rate
+					//pos (input audio sample)
+					double pos = (static_cast<double>(p->audio_start_position_ - start_sample_position) + p->audio_start_position_delay_) * rate;
+
+					//입력 오디오의 마지막 샘플 위치
+					//input_pos_max (input audio sample)
+					double input_pos_max = (p->audio_end_position_ - start_sample_position) * rate;
+
+					for (auto& next : p->next_list)
+					{
+						if (!next.exist_)
+							continue;
+						auto next_pos_s = next.pos_.count() * 1e-6; //us -> s
+						double next_pos = next_pos_s * p->sample_rate_ * target_speed_; //s -> sample
+						input_pos_max = min(input_pos_max, next_pos);
+						break;
+					}
+
+
+					//resampling(audio::interpolator::catmull_rom 사용)
+					for (auto c_i = 0; c_i < target_channel_num; ++c_i)
+					{
+						const auto temp_buffer = buffer_.getWritePointer(c_i);
+						const auto pf = ppf[c_i];
+
+						//fade_in, fade_out 처리
+						//TODO: 구현
+						//fade 적용 후 p->last_gain_ 업데이트(add_audio에서 play_data를 지울 경우 다음으로 전달 해야함)
+
+						//선행 IIR 필터 사용
+						//TODO: 구현
+
+
+						float t = pos;
+
+
+
+						for (auto i = 0; i < target_sample_num; ++i)
+						{
+
+							const auto pointer = pf + (static_cast<int>(std::floor(t)) - 1);
+							const auto value = audio::interpolator::catmull_rom::interpolate(pointer, t);
+							temp_buffer[i] = value;
+							t += static_cast<float>(rate);
+						}
+
+						//후행 IIR 필터 사용
+						//TODO: 구현
+					}
+
+
+					// auto rate = p->sample_rate_ / sample_rate_ * target_speed_;
+					// auto position = static_cast<sample_position_t>(p->audio_start_position_ * rate);
+					// auto end_position = static_cast<sample_position_t>(p->audio_end_position_ * rate);
+					// auto& data_buffer = p->data_->buffer_;
+					// auto& buffer = buffer_;
+					// auto& buffer_channel_data = buffer.getWritePointer(0);
+					// auto& data_buffer_channel_data = data_buffer.getReadPointer(0);
+					// for (int i = 0; i < target_sample_num; ++i)
+					// {
+					// 	if (position < end_position)
+					// 	{
+					// 		buffer_channel_data[i] += data_buffer_channel_data[position];
+					// 		++position;
+					// 	}
+					// 	else
+					// 	{
+					// 		break;
+					// 	}
+					// }
+				}
 			}
+
+			// for (auto p : playing_data_set_)
+			// {
+			// 	shared_lock data_buffer_lock(p->data_->mutex_);
+			// 	auto& data_buffer = p->data_->buffer_;
+			//
+			// 	chennal_mapping(p, data_buffer, target_channel_num, target_sample_num);
+			// }
 
 			// AudioBuffer<float>
 			//if
 
 			// AudioBuffer<float>
-			play_refresh();
 		}
 
 		auto audio_custom_source::add_audio(const shared_ptr<audio_data>& data, id_t id, add_audio_param param) -> bool
@@ -310,7 +503,7 @@ namespace uniq
 	}
 
 	bool audio_source::audio_segment_compare_start_cue::operator()(const shared_ptr<audio_segment> &a,
-	                                                               const shared_ptr<audio_segment> &b) const
+																   const shared_ptr<audio_segment> &b) const
 	{
 		const auto& asc = a->start_cue_;
 		const auto& bsc = b->start_cue_;
