@@ -12,10 +12,11 @@ namespace uniq
 {
 	class log
 	{
-	public:
 		inline static auto sl = spin_lock();
 		static std::string message_temp;
 		static std::string message;
+		static void println_without_lock(const std::string &str);
+	public:
 		static void print(std::string_view str);
 		static void println(std::string_view str);
 		static void info(std::string_view str);

@@ -6,6 +6,7 @@
 #include "core.h"
 #include "fade.h"
 #include "interpolator.h"
+#include <chrono>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_formats/juce_audio_formats.h> // GPL-3.0-or-later
@@ -17,13 +18,54 @@ namespace uniq
 
 	namespace internal
 	{
-		class audio_format_manager
+		class audio_device_manager : public ID<audio_device_manager>
 		{
-			inline static std::shared_ptr<juce::AudioFormatManager> format_manager_{};
+			std::shared_ptr<message_thread> mt_ = message_thread::get();
+			std::unique_ptr<juce::AudioDeviceManager> device_manager_;
+			std::atomic_flag ready_{};
+		protected:
+			audio_device_manager()
+			{
+				// log::println("audio_device_manager 생성자");
+				const auto future = mt_->call_async([this] {
+					log::info("AudioDeviceManager 초기화 중...");
+					device_manager_ = std::make_unique<juce::AudioDeviceManager>();
+					device_manager_->initialiseWithDefaultDevices(0, 2);
+					ready_.test_and_set();
+					ready_.notify_all();
+					log::info("AudioDeviceManager 초기화 완료");
+				});
+				// future.wait();
+			}
+		public:
+			~audio_device_manager()
+			{
+				// log::println("audio_device_manager 소멸자");
+				mt_->call_sync([this] {
+					log::info("AudioDeviceManager 해제 중...");
+					device_manager_.reset();
+					log::info("AudioDeviceManager 해제 완료");
+				});
+			}
+
+			std::unique_ptr<juce::AudioDeviceManager>& get()
+			{
+				return device_manager_;
+			}
+
+			void wait_ready()
+			{
+				ready_.wait(true);
+			}
+		};
+
+		class audio_format_manager// : public ID<audio_format_manager>
+		{
+			// std::shared_ptr<message_thread> mt_ = message_thread::get();
+			inline static std::weak_ptr<juce::AudioFormatManager> format_manager_weak_{};
 		public:
 			static std::shared_ptr<juce::AudioFormatManager> get();
 		};
-
 		struct audio_data
 		{
 			juce::AudioBuffer<float> buffer_;
@@ -67,42 +109,51 @@ namespace uniq
 			std::vector<id_t> fade_out_target_list_; //일반적으로 1개만 사용
 		};
 
+		// ReSharper disable once CppClassCanBeFinal
 		class audio_custom_source : public juce::AudioSource
 		{
-			using audio_position_t = std::uint32_t;
-			using sample_position_t = std::uint32_t;
+			using audio_position_t = std::uint64_t;
+			using sample_position_t = std::uint64_t;
 			struct play_data
 			{
 				id_t id_;
-				static constexpr uint32_t padding = 8; //buffer_의 좌우 여유 공간(리샘플링 등으로 인한 오버플로 방지)
 				// std::shared_ptr<audio_data> data_;
 				// juce::AudioBuffer<float> buffer_;
 				float **buffer_ = nullptr;
 				std::uint32_t sample_rate_ = 48000;
 				sample_position_t sample_num_ = 0;
 				std::uint8_t channel_num_ = 0;
-				double audio_start_position_delay_; //audio_position_t 단위 (0~1)
 				audio_position_t audio_start_position_ = 0;
+				double audio_start_position_delay_ = 0; //audio_position_t 단위 (0~1)
 				audio_position_t audio_end_position_ = 0; //audio_start_position_delay_와 fade_out_ 포함 위치
 				audio_position_t sync_start_position_ = 0; //data_의 시작 샘플 위치
 				audio_position_t sync_end_position_ = 0; //data_의 끝 샘플 위치
 				// sample_position_t start_sample_ = 0;
 				// sample_position_t end_sample_ = 0;
 				fade_low_data fade_in_;
-				std::vector<fade_low_data> fade_out_list; //이월 가능
+				std::vector<fade_low_data> fade_out_list{}; //이월 가능
+				std::chrono::microseconds time_hint_;
 				float start_gain_ = 0.f; //fade_in_ 시작 시점의 게인(적용 길이에도 영향을 줌)
 				float last_gain_ = 0.f; //fade_in_ 시작 시점의 게인(적용 길이에도 영향을 줌)
 				struct next_s
 				{
+					//다음 오디오가 continuity_tolerance 이내로 시작할 경우, 연속성 보장
 					id_t id_ = 0;
-					std::shared_ptr<audio_data> data_;
+					// std::shared_ptr<audio_data> data_;
+					float **buffer_ = nullptr;
 					std::uint32_t sample_rate_ = 48000;
-					std::chrono::duration<std::uint32_t, std::micro> pos_; //audio_start_position_ + audio_start_position_delay_에 해당하는 시간
-					sample_position_t start_sample_ = 0;
-					sample_position_t end_sample_ = 0xffffffffui32;
+					sample_position_t sample_num_ = 0;
+					std::uint8_t channel_num_ = 0;
+					// std::chrono::duration<std::uint32_t, std::micro> pos_; //audio_start_position_ + audio_start_position_delay_에 해당하는 시간
+					std::chrono::microseconds time_hint_{0};
+					audio_position_t audio_start_position_ = 0;
+					double audio_start_position_delay_ = 0; //audio_position_t 단위 (0~1)
+					// sample_position_t start_sample_ = 0;
+					// sample_position_t end_sample_ = 0xffffffffui32;
 					bool exist_ = false; //true면 다음 데이터가 존재함(즉, fade_out_ 방지)
+					~next_s();
 				};
-				std::vector<next_s> next_list; //재생될(pos_) 순서대로 정렬(fade_out_.end_time_내에 있는 모든 데이터 필요)
+				std::deque<next_s> next_que; //재생될(pos_) 순서대로 정렬(fade_out_.end_time_내에 있는 모든 데이터 필요)
 
 				~play_data();
 			};
@@ -139,6 +190,9 @@ namespace uniq
 				}
 			};
 
+			/// @remark 동적 padding으로 변경할 경우 low_buffer_와 같은 데이터를 재할당 해야 함.(누수 및 오류 방지)
+			static constexpr uint32_t padding = 8; //좌우 여유 공간(리샘플링 등으로 인한 오버플로 방지)
+			static constexpr std::chrono::duration<std::uint16_t, std::micro> continuity_tolerance{10}; //연속성 보장을 위한 허용 오차
 			std::unordered_map<id_t, std::set<std::shared_ptr<play_data>, sync_playing_data_compare>> sync_data_map_;
 			std::set<std::shared_ptr<play_data>, sync_playing_data_compare> sync_playing_data_set_;
 			std::set<std::shared_ptr<play_data>, sync_waiting_data_compare> sync_waiting_data_set_;
@@ -146,12 +200,18 @@ namespace uniq
 			std::set<std::shared_ptr<play_data>, waiting_data_compare> waiting_data_set_; //재생하지 않은 것
 			spin_lock sl_;
 			juce::AudioBuffer<float> buffer_;
-			// std::vector<std::vector<float>> low_buffer_;
-			std::unique_ptr<float[]> low_buffer_;
-			float target_speed_ = 1.0f;
+			float** low_buffer_ = nullptr;
+			float speed_target_ = 1.0f;
+			// double speed_current_ = 1.0;
+			// double speed_current_duration_ = 1; //0~1
+			juce::SmoothedValue<double, juce::ValueSmoothingTypes::Multiplicative> speed_smoothed_;
 			float gain_ = 1.0f;
 			double sample_rate_ = 0;
+			// uint8_t channel_num_ = 0;
+			static_assert(std::atomic_uint8_t::is_always_lock_free, "std::atomic_uint8_t is not lock free");
+			std::atomic_uint8_t channel_num_ = 0;
 			audio_position_t next_sample_position_ = 0; //getNextAudioBlock의 다음 호출에서 시작할 위치
+			double next_sample_position_delay_ = 0; //getNextAudioBlock의 다음 호출에서 시작할 위치(0~1)
 
 			/// @brief 동기화 목록 갱신
 			/// @warning 반드시 sl_ 잠금 상태에서 호출
@@ -162,34 +222,49 @@ namespace uniq
 			[[nodiscard]]
 			std::unique_ptr<std::vector<std::vector<std::shared_ptr<play_data>>>> play_refresh();
 
-			//반드시 sl_ 잠금 상태에서 호출
-			void buffer_ready(const int &target_channel_num, const int &target_sample_num);
+			// //반드시 sl_ 잠금 상태에서 호출
+			// void buffer_ready(const int &target_channel_num, const int &target_sample_num);
 
-			void chennal_mapping_legacy(std::shared_ptr<play_data>& pd, juce::AudioBuffer<float> &data_buffer, const int &target_channel_num, const int &
-			                     target_sample_num);
-			/// @brief 재생할 데이터를 버퍼에 쓰기
-			/// @return padding이 제외한 시작 위치(padding에 따라 음수 접근이 가능)
-			const float** chennal_mapping();
-
-		public:
-			void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-			void releaseResources() override;
-			void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-			void getNextAudioBlockLegacy(const juce::AudioSourceChannelInfo& bufferToFill);
-
-			struct add_audio_param
+			struct mapping_data
 			{
 				struct
 				{
-					std::uint32_t start = 0;
-					std::uint32_t end = 0xffffffffui32;
+					std::shared_ptr<audio_data> data;
+					sample_position_t& sample_start;
+					sample_position_t& sample_end;
+					uint8_t channel_num;
+				} in;
+				struct
+				{
+					float** buffer;
+				} out;
+			};
+
+			/// @brief 재생할 데이터를 버퍼에 쓰기
+			/// @return padding이 제외한 시작 위치(padding에 따라 음수 접근이 가능)
+			static bool chennal_mapping_copy_with_padding(mapping_data &md);
+
+		public:
+			~audio_custom_source() override;
+			void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
+			void releaseResources() override;
+			void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+			// void getNextAudioBlockLegacy(const juce::AudioSourceChannelInfo& bufferToFill);
+
+			struct add_audio_param
+			{
+				id_t id = 0;
+				struct
+				{
+					sample_position_t start = 0;
+					sample_position_t end = 0xffffffffui32;
 				} sample;
 				struct
 				{
 					struct
 					{
-						std::chrono::microseconds time;
-						std::vector<id_t> list;
+						std::chrono::microseconds time_hint{0};
+						std::vector<id_t> list{};
 					} target;
 					struct
 					{
@@ -197,34 +272,53 @@ namespace uniq
 						std::chrono::duration<std::int32_t, std::micro> end{}; //일반적으로 양수
 					} duration;
 				} sync;
-				struct
+				struct fade_s
 				{
 					fade_low_data in{};
+					fade_low_data out{};
 
-					// struct out_data
-					// {
-					// 	fade_low_data fade{};
-					//
-					// };
-					// std::vector<fade_low_data> out_list; // out.end_time_전에 재생
-
-					struct out_list_compare
+					struct out_data
 					{
-						bool operator()(const fade_low_data& a, const fade_low_data& b) const
+						id_t id = 0;
+						std::shared_ptr<audio_data> data;
+						struct sample_s
 						{
-							return a.end_time_ < b.end_time_;
-						}
+							sample_position_t start = 0;
+							sample_position_t end = 0xffffffffui32;
+						} sample;
+						struct sync_s
+						{
+							std::chrono::microseconds time_hint{0};
+						} sync;
 					};
-
+					std::vector<out_data> out_list{}; // out.end_time_전에 재생
+					// struct out_list_compare
+					// {
+					// 	bool operator()(const fade_low_data& a, const fade_low_data& b) const
+					// 	{
+					// 		return a.end_time_ < b.end_time_;
+					// 	}
+					// };
 				} fade;
 			};
-			auto add_audio(const std::shared_ptr<audio_data>& data, id_t id, add_audio_param param = {}) -> bool;
+			auto add_audio(const std::shared_ptr<audio_data>& data, const add_audio_param& param = {}) -> bool;
 		};
 	}
 
-	class audio_device : public ID<audio_device>
+	class audio_player : public ID<audio_player>
 	{
-	private:
+		std::shared_ptr<message_thread> mt_ = message_thread::get();
+		std::shared_ptr<internal::audio_device_manager> device_manager_;
+		std::unique_ptr<internal::audio_custom_source> custom_source_;
+		std::unique_ptr<juce::AudioSourcePlayer> player_;
+		spin_lock sl_;
+	protected:
+		audio_player();
+	public:
+		~audio_player();
+		using play_param = internal::audio_custom_source::add_audio_param;
+		auto add_audio(const std::shared_ptr<internal::audio_data>& data, const play_param& param = {}) const -> bool;
+		// auto add_audio(const std::shared_ptr<audio_source>& data, ) const -> bool;
 	};
 
 	class audio_cue : public ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy
@@ -283,11 +377,13 @@ namespace uniq
 
 	public:
 		static auto audio_load(const std::string &file_path) -> std::shared_ptr<audio_source>;
+		auto play(const std::shared_ptr<audio_player>& player) -> bool;
 		template<cue_add_mode = cue_add_mode::segment_split_keep_front>
 		auto cue_add(std::uint64_t cue) -> bool;
-		auto cue_lower_bound(std::uint64_t cue) -> std::shared_ptr<audio_cue>;
+		auto cue_find_lower_bound(std::uint64_t cue) -> std::shared_ptr<audio_cue>;
 		template<cue_remove_mode = cue_remove_mode::segment_merge_remove_back>
 		auto cue_remove(std::uint64_t cue) -> bool;
+		auto segment_create(std::uint64_t cue) -> std::shared_ptr<audio_segment>;
 	};
 
 	struct audio_segment : ID<audio_segment>, callback_event<audio_segment>//, callback_check_event<audio_segment>
@@ -301,16 +397,19 @@ namespace uniq
 		// void play();
 
 		// std::chrono::microseconds sync_target_time_;
-		std::vector<id_t> sync_target_list_;
-		std::chrono::duration<std::int32_t, std::micro> sync_duration_start_; //일반적으로 음수(최대 +- 35분)
-		std::chrono::duration<std::int32_t, std::micro> sync_duration_end_; //일반적으로 양수
-		internal::fade_low_data fade_in_;
-		internal::fade_low_data fade_out_;
-		std::vector<id_t> fade_out_target_list_; //일반적으로 1개만 사용
+		std::vector<id_t> sync_target_list_{};
+		std::chrono::duration<std::int32_t, std::micro> sync_duration_start_{}; //일반적으로 음수(최대 +- 35분)
+		std::chrono::duration<std::int32_t, std::micro> sync_duration_end_{}; //일반적으로 양수
+		internal::fade_low_data fade_in_{};
+		internal::fade_low_data fade_out_{};
+		std::vector<id_t> fade_out_target_list_{}; //일반적으로 1개만 사용
+	protected:
+		audio_segment(const std::shared_ptr<audio_source>& source, const std::shared_ptr<audio_cue>& start_cue, const std::shared_ptr<audio_cue>& end_cue);
 
 	public:
 		void start_cue_change(const std::shared_ptr<audio_cue>& cue);
 		void end_cue_change(const std::shared_ptr<audio_cue>& cue);
+
 	};
 }
 

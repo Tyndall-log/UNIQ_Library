@@ -73,7 +73,7 @@ namespace uniq
 	message_thread::message_thread() : Thread("UNIQ_MessageThread")
 	{
 		startThread();
-		log::println(wait(1000) ? "message_thread start" : "message_thread fail");
+		log::info(wait(1000) ? "message_thread start" : "message_thread fail");
 	}
 
 	message_thread::~message_thread()
@@ -81,7 +81,7 @@ namespace uniq
 		if (!mm_) return;
 		mm_->stopDispatchLoop();
 		const auto result = stopThread(1000);
-		log::println(result ? "message_thread stop" : "message_thread stop fail");
+		log::info(result ? "message_thread stop" : "message_thread stop fail");
 	}
 
 	void message_thread::run()
