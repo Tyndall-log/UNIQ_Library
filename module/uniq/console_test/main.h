@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: © 2024 Kim Eun-su <eunsu0402@gmail.com>
 // SPDX-License-Identifier: LGPL-3.0-linking-exception
 
-#pragma once
+#include "uniq.h"
 
-#include "workspace.h"
-
-int workspace_test1();
+int uniq_test1();

@@ -6,12 +6,12 @@
 #include "core.h"
 #include "audio.h"
 #include "launchpad.h"
-#include "uniq.h"
 
-namespace uniq::workspace
+namespace uniq
 {
-	class workspace : public ID<workspace>
+	class uniq : public ID<uniq>
 	{
-	public:
+	protected:
+		uniq() = default;
 	};
 }

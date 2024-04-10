@@ -162,6 +162,7 @@ namespace uniq
 			{
 				bool operator()(const std::shared_ptr<play_data>& a, const std::shared_ptr<play_data>& b) const
 				{
+					if (a->sync_end_position_ == b->sync_end_position_) return a < b;
 					return a->sync_end_position_ < b->sync_end_position_;
 				}
 			};
@@ -170,6 +171,7 @@ namespace uniq
 			{
 				bool operator()(const std::shared_ptr<play_data>& a, const std::shared_ptr<play_data>& b) const
 				{
+					if (a->sync_start_position_ == b->sync_start_position_) return a < b;
 					return a->sync_start_position_ < b->sync_start_position_;
 				}
 			};
@@ -178,6 +180,7 @@ namespace uniq
 			{
 				bool operator()(const std::shared_ptr<play_data>& a, const std::shared_ptr<play_data>& b) const
 				{
+					if (a->audio_end_position_ == b->audio_end_position_) return a < b;
 					return a->audio_end_position_ < b->audio_end_position_;
 				}
 			};
@@ -186,6 +189,7 @@ namespace uniq
 			{
 				bool operator()(const std::shared_ptr<play_data>& a, const std::shared_ptr<play_data>& b) const
 				{
+					if (a->audio_start_position_ == b->audio_start_position_) return a < b;
 					return a->audio_start_position_ < b->audio_start_position_;
 				}
 			};
@@ -201,12 +205,14 @@ namespace uniq
 			spin_lock sl_;
 			juce::AudioBuffer<float> buffer_;
 			float** low_buffer_ = nullptr;
-			float speed_target_ = 1.0f;
+			// float speed_target_ = 48000/44100.f;//1.f;
+			float speed_target_ = 1.f;
 			// double speed_current_ = 1.0;
 			// double speed_current_duration_ = 1; //0~1
 			juce::SmoothedValue<double, juce::ValueSmoothingTypes::Multiplicative> speed_smoothed_;
 			float gain_ = 1.0f;
 			double sample_rate_ = 0;
+			int samples_per_block_expected_ = 0;
 			// uint8_t channel_num_ = 0;
 			static_assert(std::atomic_uint8_t::is_always_lock_free, "std::atomic_uint8_t is not lock free");
 			std::atomic_uint8_t channel_num_ = 0;
@@ -323,8 +329,10 @@ namespace uniq
 
 	class audio_cue : public ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy
 	{
+	public:
+		using cue_point_t = std::uint64_t;
 	protected:
-		std::uint64_t cue_ = 0;
+		cue_point_t cue_ = 0;
 		explicit audio_cue(std::uint64_t cue);
 		void set(std::uint64_t cue);
 	public:
@@ -337,26 +345,30 @@ namespace uniq
 
 	class audio_source : public ID<audio_source>, public hierarchy
 	{
+		using cue_point_t = audio_cue::cue_point_t;
+		// using segment_list_t = std::vector<std::shared_ptr<audio_segment>>;
 	private:
+		friend audio_segment;
 		struct audio_cue_compare
         {
 			using is_transparent = void;
             bool operator()(const std::shared_ptr<audio_cue>& a, const std::shared_ptr<audio_cue>& b) const;
-			bool operator()(const std::shared_ptr<audio_cue>& a, const std::uint64_t& b) const;
-			bool operator()(const std::uint64_t& a, const std::shared_ptr<audio_cue>& b) const;
+			bool operator()(const std::shared_ptr<audio_cue>& a, const cue_point_t& b) const;
+			bool operator()(const cue_point_t& a, const std::shared_ptr<audio_cue>& b) const;
         };
 
 		struct audio_segment_compare_start_cue
 		{
 			using is_transparent = void;
 			bool operator()(const std::shared_ptr<audio_segment>& a, const std::shared_ptr<audio_segment>& b) const;
-			bool operator()(const std::shared_ptr<audio_segment>& a, const std::uint64_t& b) const;
-			bool operator()(const std::uint64_t& a, const std::shared_ptr<audio_segment>& b) const;
+			bool operator()(const std::shared_ptr<audio_segment>& a, const cue_point_t& b) const;
+			bool operator()(const cue_point_t& a, const std::shared_ptr<audio_segment>& b) const;
 		};
 
 		std::shared_ptr<internal::audio_data> data_;
 		std::set<std::shared_ptr<audio_cue>, audio_cue_compare> cue_point_list_; //항상 2개 이상(시작, 끝)
 		std::set<std::shared_ptr<audio_segment>, audio_segment_compare_start_cue> segment_start_set_;
+		// std::map<std::shared_ptr<audio_cue>, std::vector<std::shared_ptr<audio_segment>>> segment_start_map_;
 
 		enum class cue_add_mode : std::uint8_t
 		{
@@ -388,6 +400,7 @@ namespace uniq
 
 	struct audio_segment : ID<audio_segment>, callback_event<audio_segment>//, callback_check_event<audio_segment>
 	{
+		using sync_duration_t = std::chrono::duration<std::int32_t, std::micro>;
 		spin_lock sl_;
 		std::weak_ptr<audio_source> source_;
 		std::shared_ptr<audio_cue> start_cue_;
@@ -397,9 +410,10 @@ namespace uniq
 		// void play();
 
 		// std::chrono::microseconds sync_target_time_;
-		std::vector<id_t> sync_target_list_{};
-		std::chrono::duration<std::int32_t, std::micro> sync_duration_start_{}; //일반적으로 음수(최대 +- 35분)
-		std::chrono::duration<std::int32_t, std::micro> sync_duration_end_{}; //일반적으로 양수
+		std::set<id_t> sync_target_set_{};
+		std::chrono::microseconds time_hint{0};
+		sync_duration_t sync_duration_start_{}; //일반적으로 음수(최대 +- 35분)
+		sync_duration_t sync_duration_end_{}; //일반적으로 양수
 		internal::fade_low_data fade_in_{};
 		internal::fade_low_data fade_out_{};
 		std::vector<id_t> fade_out_target_list_{}; //일반적으로 1개만 사용
@@ -407,6 +421,13 @@ namespace uniq
 		audio_segment(const std::shared_ptr<audio_source>& source, const std::shared_ptr<audio_cue>& start_cue, const std::shared_ptr<audio_cue>& end_cue);
 
 	public:
+		auto play(const std::shared_ptr<audio_player>& player) -> bool;
+		auto sync_target_add(id_t id) -> bool;
+		auto sync_target_add(const std::shared_ptr<audio_segment>& segment) -> bool;
+		auto sync_target_remove(id_t id) -> bool;
+		auto sync_target_remove(const std::shared_ptr<audio_segment>& segment) -> bool;
+		auto time_hint_set(std::chrono::microseconds time_hint) -> bool;
+		auto sync_duration_set(const sync_duration_t& start, const sync_duration_t& end) -> bool;
 		void start_cue_change(const std::shared_ptr<audio_cue>& cue);
 		void end_cue_change(const std::shared_ptr<audio_cue>& cue);
 

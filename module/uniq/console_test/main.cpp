@@ -7,14 +7,7 @@ int main()
 {
 	system("chcp 65001"); //한글 설정
 
-	//고속 출력
-	std::ios_base::sync_with_stdio(false);
-	std::cin.tie(nullptr);
-	std::cout.tie(nullptr);
-
-	// test1();
-	// test2();
-	sync_test();
+	uniq_test1();
 
 	return 0;
 }
