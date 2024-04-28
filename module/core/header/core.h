@@ -9,8 +9,8 @@
 #endif
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
+#include <juce_audio_devices/juce_audio_devices.h>
 //#include <juce_audio_basics/juce_audio_basics.h>
-//#include <juce_audio_devices/juce_audio_devices.h>
 //#include <juce_audio_formats/juce_audio_formats.h>
 //#include <juce_audio_processors/juce_audio_processors.h>
 //#include <juce_gui_basics/components/juce_Component.h>
@@ -19,6 +19,7 @@
 #include "lock.h"
 #include "log.h"
 #include "event.h"
+#include "hierarchy.h"
 #include <thread>
 #include <string>
 #include <algorithm>
@@ -128,14 +129,14 @@ namespace uniq
 		}
 	};
 	
-	class hierarchy
+	class hierarchy_legacy
 	{
 	private:
 		enum class callback_mode : std::uint8_t { add, remove };
 		static id_t relationship_id_; //0은 무효한 ID입니다.
 		std::vector<std::function<void(std::any, callback_mode)>> chain_func_list_; //chain 자동 등록/해제용 함수
-		std::vector<hierarchy*> child_list_;
-		std::vector<hierarchy*> parent_list_;
+		std::vector<hierarchy_legacy*> child_list_;
+		std::vector<hierarchy_legacy*> parent_list_;
 	protected:
 		template<typename T>
 		class chain
@@ -149,9 +150,9 @@ namespace uniq
 			struct child_data
 			{
 				std::function<void(std::any)> child_add;
-				std::map<hierarchy*, chain<T>*> child_map;
+				std::map<hierarchy_legacy*, chain<T>*> child_map;
 				
-				void child_remove(hierarchy* class_ptr)
+				void child_remove(hierarchy_legacy* class_ptr)
 				{
 					if (auto it = child_map.find(class_ptr); it != child_map.end())
 					{
@@ -162,7 +163,7 @@ namespace uniq
 			};
 			struct parent_data
 			{
-				std::map<hierarchy*, chain_id*> parent_map; //검색용
+				std::map<hierarchy_legacy*, chain_id*> parent_map; //검색용
 				std::vector<chain_id*> parent_list;
 				
 				~parent_data()
@@ -173,7 +174,7 @@ namespace uniq
 					}
 				}
 				
-				void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, id_t id)
+				void parent_add(hierarchy_legacy* class_ptr, chain<T>* chain_ptr, id_t id)
 				{
 					if (auto [iter, inserted] = parent_map.try_emplace(class_ptr, new chain_id{id, chain_ptr}); inserted)
 					{
@@ -181,7 +182,7 @@ namespace uniq
 					}
 				}
 				
-				void parent_remove(hierarchy* class_ptr)
+				void parent_remove(hierarchy_legacy* class_ptr)
 				{
 					if (auto it = parent_map.find(class_ptr); it != parent_map.end())
 					{
@@ -200,7 +201,7 @@ namespace uniq
 				}
 			};
 		private:
-			//hierarchy* parent_;
+			//hierarchy_legacy* parent_;
 			std::shared_ptr<T> value_;
 			bool sync_{};
 			std::map<std::type_index, child_data> child_map_; //child_map_[class_pointer_type] = child_data
@@ -227,7 +228,7 @@ namespace uniq
 				}
 			}
 			
-			void parent_add(hierarchy* class_ptr, chain<T>* chain_ptr, id_t id)
+			void parent_add(hierarchy_legacy* class_ptr, chain<T>* chain_ptr, id_t id)
 			{
 				if (auto it = parent_priority_map_.find(typeid(class_ptr)); it != parent_priority_map_.end())
 				{
@@ -249,7 +250,7 @@ namespace uniq
 				}
 			}
 			
-			void parent_remove(hierarchy* class_ptr)
+			void parent_remove(hierarchy_legacy* class_ptr)
 			{
 				if (auto it = parent_priority_map_.find(typeid(class_ptr)); it != parent_priority_map_.end())
 				{
@@ -294,10 +295,10 @@ namespace uniq
 			//protected:
 		
 		public:
-			chain(hierarchy* parent, T value) : chain(parent, value, false){};
+			chain(hierarchy_legacy* parent, T value) : chain(parent, value, false){};
 			template<typename... Others>
 			requires (... && std::is_member_pointer_v<Others>) // Others는 chain<T> K::* 형식의 멤버 포인터여야 합니다.
-			chain(hierarchy* parent, T value, const bool sync, Others... others)
+			chain(hierarchy_legacy* parent, T value, const bool sync, Others... others)
 			{
 				//parent_ = parent;
 				value_ = std::make_shared<T>(value);
@@ -316,7 +317,7 @@ namespace uniq
 								break;
 							case callback_mode::remove: // 삭제 모드
 								if (auto it = child_map_.find(class_ptr.type()); it != child_map_.end())
-									it->second.child_remove(std::any_cast<hierarchy*>(class_ptr));
+									it->second.child_remove(std::any_cast<hierarchy_legacy*>(class_ptr));
 								break;
 							default:
 								break;
@@ -369,31 +370,31 @@ namespace uniq
 		};
 	
 	public:
-		~hierarchy();
+		~hierarchy_legacy();
 		
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		inline void child_add(std::shared_ptr<T>& child)
 		{
 			child_add(child.get());
 		}
 		
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		inline void child_remove(std::shared_ptr<T>& child)
 		{
 			child_remove(child.get());
 		}
 		
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		inline void parent_add(std::shared_ptr<T>& parent)
 		{
 			parent->child_add(this);
 		}
 		
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		inline void parent_remove(std::shared_ptr<T>& parent)
 		{
 			parent->child_remove(this);
@@ -401,7 +402,7 @@ namespace uniq
 	
 	private:
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		void child_add(T* child)
 		{
 			child_list_.emplace_back(child);
@@ -413,16 +414,15 @@ namespace uniq
 		}
 		
 		template<typename T>
-		requires std::is_base_of_v<hierarchy, T> // T는 hierarchy를 상속받아야 합니다.
+		requires std::is_base_of_v<hierarchy_legacy, T> // T는 hierarchy를 상속받아야 합니다.
 		void child_remove(T* child)
 		{
 			for (auto& f: chain_func_list_)
 			{
-				f(static_cast<hierarchy*>(child), callback_mode::remove);
+				f(static_cast<hierarchy_legacy*>(child), callback_mode::remove);
 			}
 		}
 	};
-	
 	
 	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
 	class MainMessageThread : public juce::Thread
@@ -519,5 +519,46 @@ namespace uniq
 			stopThread(1000);
 		}
 		[[nodiscard]] static std::shared_ptr<mutex_test> get();
+	};
+
+	class audio_device_manager : public ID<audio_device_manager>
+	{
+		std::shared_ptr<message_thread> mt_ = message_thread::get();
+		std::shared_ptr<juce::AudioDeviceManager> device_manager_;
+		std::atomic_flag ready_{};
+	protected:
+		audio_device_manager()
+		{
+			// log::println("audio_device_manager 생성자");
+			const auto future = mt_->call_async([this] {
+				log::info("AudioDeviceManager 초기화 중...");
+				device_manager_ = std::make_unique<juce::AudioDeviceManager>();
+				device_manager_->initialiseWithDefaultDevices(0, 2);
+				ready_.test_and_set();
+				ready_.notify_all();
+				log::info("AudioDeviceManager 초기화 완료");
+			});
+			// future.wait();
+		}
+	public:
+		~audio_device_manager()
+		{
+			// log::println("audio_device_manager 소멸자");
+			mt_->call_sync([this] {
+				log::info("AudioDeviceManager 해제 중...");
+				device_manager_.reset();
+				log::info("AudioDeviceManager 해제 완료");
+			});
+		}
+
+		std::shared_ptr<juce::AudioDeviceManager>& get()
+		{
+			return device_manager_;
+		}
+
+		void wait_ready() const
+		{
+			ready_.wait(true);
+		}
 	};
 }

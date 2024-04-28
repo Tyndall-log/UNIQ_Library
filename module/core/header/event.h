@@ -12,10 +12,12 @@ namespace uniq
 	{
 		change_before,
 		change_after,
-		try_remove,
 		remove_before,
 	};
 
+	/// @brief callback 함수를 저장하고 호출하는 클래스
+	/// @tparam T
+	/// @details T는 callback 함수의 인자 타입입니다.
 	template<typename T>
 	class callback_event
 	{

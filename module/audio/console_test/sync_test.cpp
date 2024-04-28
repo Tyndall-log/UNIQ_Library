@@ -61,7 +61,7 @@ int sync_test2()
 	cin.get();
 	// as->play(player);
 	auto max_num = 100;
-	constexpr double t = 1;
+	constexpr double t = 1.1653;
 	constexpr double offset = 0;
 	constexpr double split = 44100 * t;
 	vector<shared_ptr<audio_segment>> segment_list;
@@ -77,7 +77,6 @@ int sync_test2()
 		// s->sync_duration_set(-5000ms, 5000ms);
 		s->sync_duration_set(-999999ms, 5000ms);
 		// s->sync_duration_set(0ms, 0ms);
-		cout << (static_cast<int>(t) * i + static_cast<int>(offset)) * 1s << endl;
 		s->time_hint_set(static_cast<int>(t * i * 1e6 + offset) * 1us);
 		if (!segment_list.empty()) s->sync_target_add(segment_list.back());
 		cout << "segment id: " << s->ID_get() << endl;
@@ -108,9 +107,10 @@ int sync_test3()
 	auto as = audio_source::audio_load(audio_file_path.file4);
 	cin.get();
 	// as->play(player);
-	auto max_num = 100;
-	constexpr double t = 1.164;
-	constexpr double offset = 0;
+	auto max_num = 600;
+	// constexpr double t = 0.333;
+	constexpr double t = 1;
+	constexpr double offset = 44100 * 1.05;
 	constexpr double split = 44100 * t;
 	vector<shared_ptr<audio_segment>> segment_list;
 	for (int i = 1; i <= max_num; i++)
@@ -122,12 +122,15 @@ int sync_test3()
 			cout << i << "번째 segment_create 실패" << endl;
 			continue;
 		}
-		// s->sync_duration_set(-5000ms, 5000ms);
-		s->sync_duration_set(-999999ms, 5000ms);
+		s->sync_duration_set(-500ms, 500ms);
+		// s->sync_duration_set(-999999ms, 1000ms);
 		// s->sync_duration_set(0ms, 0ms);
-		cout << (static_cast<int>(t) * i + static_cast<int>(offset)) * 1s << endl;
-		s->time_hint_set(static_cast<int>(t * i * 1e6 + offset) * 1us);
-		if (!segment_list.empty()) s->sync_target_add(segment_list.back());
+		s->time_hint_set(static_cast<int>(t * i * 1e6) * 1us);
+		if (!segment_list.empty())
+		{
+			s->sync_target_add(segment_list.back());
+			// segment_list.back()->
+		}
 		cout << "segment id: " << s->ID_get() << endl;
 		segment_list.push_back(s);
 	}
@@ -135,7 +138,7 @@ int sync_test3()
 
 	for(const auto &s : segment_list)
 	{
-		cin.get();
+		// cin.get();
 		cout << s->ID_get() << " play" << endl;
 		cout << s->play(player) << endl;
 	}
@@ -153,7 +156,7 @@ int sync_test()
 {
 	cout << "sync_test 시작" << endl;
 	// sync_test1();
-	sync_test2();
-	// sync_test3();
+	// sync_test2();
+	sync_test3();
 	return 0;
 }

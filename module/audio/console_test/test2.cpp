@@ -120,7 +120,7 @@ int test2()
 	auto mt = uniq::message_thread::get();
 	test_ns2::audio_source as(audio_file_path.file2);
 
-	audio_device_manager adm;
+	test_ns2::audio_device_manager adm;
 	int a;
 	std::cin >> a;
 	as.play(adm);

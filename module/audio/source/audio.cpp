@@ -41,7 +41,28 @@ namespace uniq::internal
 		return data;
 	}
 
-	auto fade_low_data::get_gain(const std::chrono::duration<std::int32_t, std::micro> &time) const -> float
+	shared_ptr<audio_data> audio_data::load(unique_ptr<InputStream> input_stream,
+		const string &extension, const string &path, const string &name)
+	{
+		const auto format_manager = audio_format_manager::get();
+		const unique_ptr<AudioFormatReader> reader(format_manager->createReaderFor(move(input_stream)));
+		if (reader == nullptr)
+		{
+			log::println("audio_data::load: reader is nullptr");
+			return nullptr;
+		}
+		auto buffer = AudioBuffer<float>(static_cast<int>(reader->numChannels), static_cast<int>(reader->lengthInSamples));
+		reader->read(&buffer, 0, static_cast<int>(reader->lengthInSamples), 0, true, true);
+		auto data = make_shared<audio_data>();
+		data->buffer_ = buffer;
+		data->sample_rate_ = static_cast<unsigned int>(reader->sampleRate);
+		data->extension_ = extension;
+		data->path_ = path.empty() ? "unknown"s : path;
+		data->name_ = name.empty() ? "unknown"s : name;
+		return data;
+	}
+
+	auto fade_low_data::get_gain(const chrono::duration<int32_t, micro> &time) const -> float
 	{
 		if (time < start_time_)
 		{
@@ -127,7 +148,7 @@ namespace uniq::internal
 	}
 
 	auto audio_custom_source::play_refresh()
-		-> std::unique_ptr<std::vector<std::vector<std::shared_ptr<play_data>>>>
+		-> unique_ptr<vector<vector<shared_ptr<play_data>>>>
 	{
 		auto combo_list = make_unique<vector<vector<shared_ptr<play_data>>>>();
 		auto waiting_data_map = map<id_t, queue<shared_ptr<play_data>>>();
@@ -539,8 +560,8 @@ namespace uniq::internal
 
 				//리셈플링
 				float k;
-				const auto t = std::modf(static_cast<float>(input_sample_pos), &k);
-				const int k_i = static_cast<int>(std::floor(k)) - 1;
+				const auto t = modf(static_cast<float>(input_sample_pos), &k);
+				const int k_i = static_cast<int>(floor(k)) - 1;
 				for (auto c_i = 0; c_i < channel_num; ++c_i)
 				{
 					const float* const& _b_p = input_buffer[c_i];
@@ -678,7 +699,7 @@ namespace uniq::internal
 			{
 				//오차가 허용 범위를 넘어선 경우, time_hint 기반으로 동기화(modf 사용)
 				double time_hint_based_comp_pos_i;
-				pd_aspd = std::modf(time_hint_based_comp_pos, &time_hint_based_comp_pos_i);
+				pd_aspd = modf(time_hint_based_comp_pos, &time_hint_based_comp_pos_i);
 				pd_asp = sync_target_play_data->audio_start_position_ + static_cast<sample_position_t>(time_hint_based_comp_pos_i);
 				//TO?DO: continuity_tolerance보다 작은 오차 보정
 			}
@@ -709,10 +730,12 @@ namespace uniq::internal
 			pd->sync_end_position_ = 0;
 
 		waiting_data_set_.insert(pd);
-		if (pd->sync_start_position_ < next_sample_position_)
-			sync_playing_data_set_.insert(pd);
-		else
-			sync_waiting_data_set_.insert(pd);
+		if (pd->sync_start_position_ < pd->sync_end_position_)
+			if (next_sample_position_ < pd->sync_end_position_)
+				if (pd->sync_start_position_ <= next_sample_position_)
+					sync_playing_data_set_.insert(pd);
+				else
+					sync_waiting_data_set_.insert(pd);
 
 		if (sync_target_play_data)
 		{
@@ -743,9 +766,11 @@ namespace uniq
 {
 #pragma endregion audio_custom_source
 
-	audio_player::audio_player()
+	audio_player::audio_player() : audio_player(audio_device_manager::create()) {}
+
+	audio_player::audio_player(const std::shared_ptr<audio_device_manager> &device_manager)
 	{
-		device_manager_ = internal::audio_device_manager::create();
+		device_manager_ = device_manager;
 		player_ = make_unique<AudioSourcePlayer>();
 		custom_source_ = make_unique<internal::audio_custom_source>();
 		mt_->call_async([this](){
@@ -764,7 +789,12 @@ namespace uniq
 		device_manager_.reset();
 	}
 
-	auto audio_player::add_audio(const std::shared_ptr<internal::audio_data> &data, const play_param &param) const -> bool
+	std::shared_ptr<audio_device_manager> audio_player::device_manager_get() const
+	{
+		return device_manager_;
+	}
+
+	auto audio_player::add_audio(const shared_ptr<internal::audio_data> &data, const play_param &param) const -> bool
 	{
 		return custom_source_->add_audio(data, param);
 	}
@@ -781,7 +811,7 @@ namespace uniq
 		}
 	}
 
-	bool audio_cue::try_set(std::uint64_t cue)
+	bool audio_cue::try_set(uint64_t cue)
 	{
 		auto possible = call_check_callback(*this, callback_check_mode::change_possible);
 		if (!possible)
@@ -816,12 +846,12 @@ namespace uniq
 		return *a < *b;
 	}
 
-	bool audio_source::audio_cue_compare::operator()(const std::shared_ptr<audio_cue> &a, const std::uint64_t &b) const
+	bool audio_source::audio_cue_compare::operator()(const shared_ptr<audio_cue> &a, const uint64_t &b) const
 	{
 		return *a < b;
 	}
 
-	bool audio_source::audio_cue_compare::operator()(const std::uint64_t &a, const std::shared_ptr<audio_cue> &b) const
+	bool audio_source::audio_cue_compare::operator()(const uint64_t &a, const shared_ptr<audio_cue> &b) const
 	{
 		return a < *b;
 	}
@@ -854,7 +884,24 @@ namespace uniq
 
 	auto audio_source::audio_load(const string &file_path) -> shared_ptr<audio_source>
 	{
-		const auto data = internal::audio_data::load(file_path);
+		const auto data = uniq::internal::audio_data::load(file_path);
+		if (data == nullptr)
+		{
+			log::println("audio_source::audio_load: data is nullptr");
+			return nullptr;
+		}
+		auto source = create();
+		source->data_ = data;
+		source->cue_point_list_.insert(audio_cue::create(0));
+		source->cue_point_list_.insert(audio_cue::create(data->buffer_.getNumSamples()));
+		return source;
+	}
+
+	auto audio_source::internal::audio_load(unique_ptr<InputStream> input_stream,
+		const string &extension, const string &path, const string &name)
+		-> std::shared_ptr<audio_source>
+	{
+		auto data = uniq::internal::audio_data::load(move(input_stream), extension, path, name);
 		if (data == nullptr)
 		{
 			log::println("audio_source::audio_load: data is nullptr");
@@ -881,7 +928,7 @@ namespace uniq
 		return player->add_audio(data_, _play_param);
 	}
 
-	auto audio_source::cue_find_lower_bound(cue_point_t cue) -> std::shared_ptr<audio_cue>
+	auto audio_source::cue_find_lower_bound(cue_point_t cue) -> shared_ptr<audio_cue>
 	{
 		auto it = cue_point_list_.lower_bound(cue);
 		if (it == cue_point_list_.end())
@@ -889,7 +936,7 @@ namespace uniq
 		return *it;
 	}
 
-	auto audio_source::segment_create(const cue_point_t cue) -> std::shared_ptr<audio_segment>
+	auto audio_source::segment_create(const cue_point_t cue) -> shared_ptr<audio_segment>
 	{
 		//데이터 길이 검사
 		auto data = data_;
@@ -908,8 +955,14 @@ namespace uniq
 			}
 		}
 
-		auto cue_point_it = cue_point_list_.lower_bound(cue);
-		if (prev(cue_point_it) == cue_point_list_.end() || cue_point_it == cue_point_list_.end())
+		// auto cue_point_it = cue_point_list_.lower_bound(cue);
+		// if (prev(cue_point_it) == cue_point_list_.end() || cue_point_it == cue_point_list_.end())
+		// {
+		// 	log::error("논리 오류: cue_point가 nullptr(논리적으로 반드시 존재해야 함)");
+		// 	return nullptr;
+		// }
+		auto cue_point_it = cue_point_list_.upper_bound(cue);
+		if (cue_point_it == cue_point_list_.begin() || cue_point_it == cue_point_list_.end())
 		{
 			log::error("논리 오류: cue_point가 nullptr(논리적으로 반드시 존재해야 함)");
 			return nullptr;
@@ -924,7 +977,7 @@ namespace uniq
 	}
 
 	audio_segment::audio_segment(const shared_ptr<audio_source> &source,
-		const shared_ptr<audio_cue> &start_cue, const shared_ptr<audio_cue> &end_cue)
+	                             const shared_ptr<audio_cue> &start_cue, const shared_ptr<audio_cue> &end_cue)
 		: source_(source), start_cue_(start_cue), end_cue_(end_cue)
 	{
 	}
@@ -967,7 +1020,7 @@ namespace uniq
 		return true;
 	}
 
-	auto audio_segment::sync_target_add(const std::shared_ptr<audio_segment> &segment) -> bool
+	auto audio_segment::sync_target_add(const shared_ptr<audio_segment> &segment) -> bool
 	{
 		if (segment == nullptr)
 		{
@@ -1000,7 +1053,7 @@ namespace uniq
 		return true;
 	}
 
-	auto audio_segment::sync_target_remove(const std::shared_ptr<audio_segment> &segment) -> bool
+	auto audio_segment::sync_target_remove(const shared_ptr<audio_segment> &segment) -> bool
 	{
 		if (segment == nullptr)
 		{
@@ -1022,7 +1075,7 @@ namespace uniq
 		return true;
 	}
 
-	auto audio_segment::time_hint_set(std::chrono::microseconds time_hint) -> bool
+	auto audio_segment::time_hint_set(chrono::microseconds time_hint) -> bool
 	{
 		this->time_hint = time_hint;
 		return true;
@@ -1040,7 +1093,7 @@ namespace uniq
 		return true;
 	}
 
-	void audio_segment::start_cue_change(const std::shared_ptr<audio_cue> &cue)
+	void audio_segment::start_cue_change(const shared_ptr<audio_cue> &cue)
 	{
 		unique_lock lock(sl_);
 		if (start_cue_ == cue)
@@ -1053,7 +1106,7 @@ namespace uniq
 		call_callback(*this, callback_mode::change_after);
 	}
 
-	void audio_segment::end_cue_change(const std::shared_ptr<audio_cue> &cue)
+	void audio_segment::end_cue_change(const shared_ptr<audio_cue> &cue)
 	{
 		unique_lock lock(sl_);
 		if (end_cue_ == cue)

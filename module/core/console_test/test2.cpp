@@ -10,18 +10,18 @@ namespace ns_test2
 	using namespace juce;
 	using namespace uniq;
 	
-	class test_class_c : public hierarchy
+	class test_class_c : public hierarchy_legacy
 	{
 	public:
 		chain<int> value_{this, 0, false, &test_class_c::value_};
 	};
-	class test_class_b : public hierarchy
+	class test_class_b : public hierarchy_legacy
 	{
 	public:
 		chain<int> value_{this, 0, false, &test_class_b::value_};
 	};
 	
-	class test_class_a : public hierarchy
+	class test_class_a : public hierarchy_legacy
 	{
 	public:
 		chain<int> value_{this, 0, false, &test_class_a::value_, &test_class_b::value_, &test_class_c::value_};

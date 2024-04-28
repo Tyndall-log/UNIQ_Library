@@ -18,47 +18,6 @@ namespace uniq
 
 	namespace internal
 	{
-		class audio_device_manager : public ID<audio_device_manager>
-		{
-			std::shared_ptr<message_thread> mt_ = message_thread::get();
-			std::unique_ptr<juce::AudioDeviceManager> device_manager_;
-			std::atomic_flag ready_{};
-		protected:
-			audio_device_manager()
-			{
-				// log::println("audio_device_manager 생성자");
-				const auto future = mt_->call_async([this] {
-					log::info("AudioDeviceManager 초기화 중...");
-					device_manager_ = std::make_unique<juce::AudioDeviceManager>();
-					device_manager_->initialiseWithDefaultDevices(0, 2);
-					ready_.test_and_set();
-					ready_.notify_all();
-					log::info("AudioDeviceManager 초기화 완료");
-				});
-				// future.wait();
-			}
-		public:
-			~audio_device_manager()
-			{
-				// log::println("audio_device_manager 소멸자");
-				mt_->call_sync([this] {
-					log::info("AudioDeviceManager 해제 중...");
-					device_manager_.reset();
-					log::info("AudioDeviceManager 해제 완료");
-				});
-			}
-
-			std::unique_ptr<juce::AudioDeviceManager>& get()
-			{
-				return device_manager_;
-			}
-
-			void wait_ready()
-			{
-				ready_.wait(true);
-			}
-		};
-
 		class audio_format_manager// : public ID<audio_format_manager>
 		{
 			// std::shared_ptr<message_thread> mt_ = message_thread::get();
@@ -76,6 +35,8 @@ namespace uniq
 			shared_recursive_timed_mutex_priority mutex_; //독점의 경우 가능한 1ms 이하로 잠궈야 함.
 		public:
 			static std::shared_ptr<audio_data> load(const std::string& path);
+			static std::shared_ptr<audio_data> load(std::unique_ptr<juce::InputStream> input_stream,
+				const std::string& extension, const std::string& path = {}, const std::string& name = {});
 		};
 
 		struct fade_low_data
@@ -314,20 +275,22 @@ namespace uniq
 	class audio_player : public ID<audio_player>
 	{
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
-		std::shared_ptr<internal::audio_device_manager> device_manager_;
+		std::shared_ptr<audio_device_manager> device_manager_;
 		std::unique_ptr<internal::audio_custom_source> custom_source_;
 		std::unique_ptr<juce::AudioSourcePlayer> player_;
 		spin_lock sl_;
 	protected:
 		audio_player();
+		explicit audio_player(const std::shared_ptr<audio_device_manager>& device_manager);
 	public:
 		~audio_player();
+		std::shared_ptr<audio_device_manager> device_manager_get() const;
 		using play_param = internal::audio_custom_source::add_audio_param;
 		auto add_audio(const std::shared_ptr<internal::audio_data>& data, const play_param& param = {}) const -> bool;
 		// auto add_audio(const std::shared_ptr<audio_source>& data, ) const -> bool;
 	};
 
-	class audio_cue : public ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy
+	class audio_cue : public ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy_legacy
 	{
 	public:
 		using cue_point_t = std::uint64_t;
@@ -343,7 +306,7 @@ namespace uniq
 		explicit operator std::uint64_t() const;
 	};
 
-	class audio_source : public ID<audio_source>, public hierarchy
+	class audio_source : public ID<audio_source>
 	{
 		using cue_point_t = audio_cue::cue_point_t;
 		// using segment_list_t = std::vector<std::shared_ptr<audio_segment>>;
@@ -389,6 +352,12 @@ namespace uniq
 
 	public:
 		static auto audio_load(const std::string &file_path) -> std::shared_ptr<audio_source>;
+		struct internal
+		{
+			static auto audio_load(std::unique_ptr<juce::InputStream> input_stream,
+				const std::string &extension, const std::string &path = {}, const std::string &name = {})
+				-> std::shared_ptr<audio_source>;
+		};
 		auto play(const std::shared_ptr<audio_player>& player) -> bool;
 		template<cue_add_mode = cue_add_mode::segment_split_keep_front>
 		auto cue_add(std::uint64_t cue) -> bool;
@@ -397,6 +366,17 @@ namespace uniq
 		auto cue_remove(std::uint64_t cue) -> bool;
 		auto segment_create(std::uint64_t cue) -> std::shared_ptr<audio_segment>;
 	};
+
+	// namespace internal
+	// {
+	// 	struct audio_source
+	// 	{
+	// 		static auto audio_load(std::unique_ptr<juce::InputStream> input_stream,
+	// 			const std::string &extension, const std::string &path = {}, const std::string &name = {})
+	// 			-> std::shared_ptr<uniq::audio_source>;
+	// 	};
+	// }
+
 
 	struct audio_segment : ID<audio_segment>, callback_event<audio_segment>//, callback_check_event<audio_segment>
 	{

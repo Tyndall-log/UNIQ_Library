@@ -15,7 +15,7 @@ using namespace std;
 // using namespace juce;
 using namespace uniq;
 
-namespace uniq
+namespace test_ns1
 {
 	class audio_device_manager : public ID<audio_device_manager>
 	{
@@ -62,7 +62,7 @@ int test1()
 	int a;
 
 	//juce::AudioDeviceManager deviceManager;
-	audio_device_manager adm;
+	test_ns1::audio_device_manager adm;
 	auto& deviceManager = *adm.get();
 	deviceManager.initialiseWithDefaultDevices(0, 2);
 

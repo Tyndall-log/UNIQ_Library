@@ -30,9 +30,9 @@ namespace uniq
 #pragma endregion ID_manager
 
 #pragma region hierarchy
-	id_t hierarchy::relationship_id_ = 0;
+	id_t hierarchy_legacy::relationship_id_ = 0;
 	
-	hierarchy::~hierarchy()
+	hierarchy_legacy::~hierarchy_legacy()
 	{
 //		for (auto& child: child_list_)
 //		{

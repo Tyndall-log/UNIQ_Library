@@ -29,7 +29,12 @@ namespace uniq
 		std::unique_ptr<midi_callback> input_callback;
 		bool automatic_transmission;
 		bool immediate_transmission;
-		
+
+		inline static int input_callback_function_map_index = 0;
+		std::map<int, std::function<void(const std::uint8_t*, int)>> input_callback_function_map_;
+		std::map<int, std::function<void(std::uint8_t, std::uint8_t, std::uint8_t)>> input_button_down_callback_map_;
+		std::map<int, std::function<void(std::uint8_t, std::uint8_t)>> input_button_up_callback_map_;
+
 		const int LED_w = 10;
 		const int LED_h = 10;
 		std::vector<std::vector<VRGB>> LED_grid_current; //vrgb
@@ -38,11 +43,18 @@ namespace uniq
 		
 		class midi_callback : public juce::MidiInputCallback
 		{
-			std::function<void(std::uint8_t*, int)> callback_function;
+			// void(launchpad::*callback_function)(const std::uint8_t*, int) = nullptr;
+			std::function<void(const std::uint8_t*, int)> callback_function;
+			// std::set<std::function<void(std::uint8_t*, int)>> callback_function_set_;
+			// std::set<void(*)(std::uint8_t*, int)> callback_function_set_;
+			// std::map<int, std::function<void(std::uint8_t*, int)>> callback_function_map_;
+			// inline static int callback_function_map_index = 0;
 			void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage&) override;
 			void printHex(const uint8_t*, size_t);
 		public:
-			void callback_set(std::function<void(std::uint8_t*, int)>&&);
+			void callback_set(std::function<void(const std::uint8_t*, int)> callback);
+			// int callback_add(std::function<void(std::uint8_t*, int)> &&callback);
+			// bool callback_remove(int callback_id);
 		};
 		
 		class LED_global_timer : public juce::HighResolutionTimer
@@ -61,6 +73,7 @@ namespace uniq
 		
 		void init();
 		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
+		void input_button_callback(const std::uint8_t*, int);
 	public:
 		class midi_device_info : public juce::MidiDeviceInfo
 		{
@@ -75,6 +88,7 @@ namespace uniq
 		//launchpad(std::shared_ptr<juce::AudioDeviceManager>, const midi_device_info&);
 		launchpad(std::shared_ptr<juce::AudioDeviceManager>&);
 		launchpad(std::shared_ptr<juce::AudioDeviceManager>&, const midi_device_info&, const midi_device_info&);
+		launchpad(const std::shared_ptr<audio_device_manager>&, const midi_device_info*, const midi_device_info*);
 		~launchpad();
 		
 		bool midi_input_set(const midi_device_info&);
@@ -89,7 +103,16 @@ namespace uniq
 		void automatic_transmission_set(bool = true);
 		void immediate_transmission_set(bool = true);
 		static void immediate_transmission_global_timer_set(int);
-		void input_callback_set(std::function<void(std::uint8_t*, int)>&&);
+
+		[[nodiscard]]
+		int input_callback_add(std::function<void(const std::uint8_t *, int)>&& callback);
+		bool input_callback_remove(int callback_id);
+		[[nodiscard]]
+		auto input_button_down_callback_add(std::function<void(std::uint8_t, std::uint8_t, std::uint8_t)>&& callback) -> int;
+		bool input_button_down_callback_remove(int callback_id);
+		[[nodiscard]]
+		auto input_button_up_callback_add(std::function<void(std::uint8_t, std::uint8_t)>&& callback) -> int;
+		bool input_button_up_callback_remove(int callback_id);
 		static std::vector<midi_device_info> get_available_input_list();
 		static std::vector<midi_device_info> get_available_output_list();
 		std::string input_identifier_get();
