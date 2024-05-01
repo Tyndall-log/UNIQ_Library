@@ -73,6 +73,8 @@ namespace uniq
 			bool operator()(const std::shared_ptr<group_callback>& lhs, const std::shared_ptr<group_callback>& rhs) const;
 			bool operator()(const std::shared_ptr<group_callback>& lhs, const std::shared_ptr<timeline_group>& rhs) const;
 			bool operator()(const std::shared_ptr<timeline_group>& lhs, const std::shared_ptr<group_callback>& rhs) const;
+			bool operator()(const std::shared_ptr<group_callback>& lhs, const cue_point_t& rhs) const;
+			bool operator()(const cue_point_t& lhs, const std::shared_ptr<group_callback>& rhs) const;
 		};
 		std::string name_;
 		std::set<std::shared_ptr<group_callback>, group_callback_set_compare> group_callback_set_;
@@ -89,7 +91,10 @@ namespace uniq
 		{
 			timeline* timeline_;
 			explicit internal(timeline* timeline);
-			auto key_group_get(uint8_t x, uint8_t y) -> std::set<std::shared_ptr<timeline_group>, timeline_group_compare_start_cue>&;
+			[[nodiscard]]
+			auto key_group_get(uint8_t x, uint8_t y) const -> std::set<std::shared_ptr<timeline_group>, timeline_group_compare_start_cue>&;
+			[[nodiscard]]
+			auto group_callback_set_get() const -> std::set<std::shared_ptr<group_callback>, group_callback_set_compare>&;
 		} internal{this};
 		[[nodiscard]] std::string name_get() const;
 		void name_set(const std::string& name);
@@ -100,6 +105,8 @@ namespace uniq
 		// auto group_find_ceil(const cue_point_t& cue) -> std::shared_ptr<timeline_group>;
 
 		auto last_play_group_get(uint8_t x, uint8_t y) -> std::shared_ptr<timeline_group>;
+		void last_play_group_set(uint8_t x, uint8_t y, const std::shared_ptr<timeline_group>& group);
+		auto last_play_group_reset_all() -> void;
 		// uint16_t press_count_get(uint8_t x, uint8_t y);
 		// void press_count_increase(uint8_t x, uint8_t y);
 		// void press_count_reset(uint8_t x, uint8_t y, cue_point_t cue = std::chrono::microseconds(0));
@@ -114,8 +121,11 @@ namespace uniq
 		std::shared_ptr<timeline_cue> start_cue;
 		struct xy
 		{
-			std::int8_t x = 0;
-			std::int8_t y = 0;
+			int8_t x = 0;
+			int8_t y = 0;
+			xy(int8_t x, int8_t y);
+			xy(uint8_t x, uint8_t y);
+			xy(int x, int y);
 			auto operator<=>(const xy& other) const = default;
 		};
 		struct set_compare

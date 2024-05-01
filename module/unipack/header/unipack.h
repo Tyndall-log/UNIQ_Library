@@ -27,6 +27,7 @@ namespace uniq::unipack
 			off,
 			touch,
 		};
+		static auto bom_skip(juce::InputStream &input) -> void;
 		// template<autoplay_command_type>
 		// static bool on_off_touch(const std::shared_ptr<timeline> &main_timeline, const juce::String &line,
 		// 	const juce::StringArray &tokens, const std::vector<keysound_info> keysound_list[8][8][8]);

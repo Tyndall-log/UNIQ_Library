@@ -296,9 +296,17 @@ namespace uniq::internal
 			{
 				const auto& data_buffer_channel_data = data_buffer.getReadPointer(c_i);
 				const auto& buffer_c = buffer[c_i];
+				for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+				{
+					buffer_c[i] = 0.f;
+				}
 				for (auto i = i_start; i < i_end; ++i)
 				{
 					buffer_c[buffer_offset + i] = data_buffer_channel_data[i];
+				}
+				for (auto i = i_end; i < sample_end + padding; ++i)
+				{
+					buffer_c[buffer_offset + i] = 0.f;
 				}
 			}
 		}
@@ -311,9 +319,17 @@ namespace uniq::internal
 				const auto& l_p = data_buffer.getReadPointer(0);
 				const auto& r_p = data_buffer.getReadPointer(1);
 				const auto& buffer_0 = buffer[0];
+				for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+				{
+					buffer_0[i] = 0.f;
+				}
 				for (auto i = i_start; i < i_end; ++i)
 				{
 					buffer_0[buffer_offset + i] = (l_p[i] + r_p[i]) * 0.5f;
+				}
+				for (auto i = i_end; i < sample_end + padding; ++i)
+				{
+					buffer_0[buffer_offset + i] = 0.f;
 				}
 			}
 			else if (channel_num_ == 2 && data_buffer_channel_num == 1)
@@ -322,11 +338,21 @@ namespace uniq::internal
 				const auto& mono_p = data_buffer.getReadPointer(0); // 모노 채널 데이터 포인터
 				const auto& buffer_0 = buffer[0];
 				const auto& buffer_1 = buffer[1];
+				for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+				{
+					buffer_0[i] = 0.f;
+					buffer_1[i] = 0.f;
+				}
 				for (auto i = i_start; i < i_end; ++i)
 				{
 					const float& monoSample = mono_p[i];
 					buffer_0[buffer_offset + i] = monoSample;
 					buffer_1[buffer_offset + i] = monoSample;
+				}
+				for (auto i = i_end; i < sample_end + padding; ++i)
+				{
+					buffer_0[buffer_offset + i] = 0.f;
+					buffer_1[buffer_offset + i] = 0.f;
 				}
 			}
 			else
@@ -413,6 +439,14 @@ namespace uniq::internal
 
 	void audio_custom_source::getNextAudioBlock(const AudioSourceChannelInfo &bufferToFill)
 	{
+		// //시간 간격 표시
+		// static auto time = chrono::system_clock::now();
+		// auto diff = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now() - time).count();
+		// time = chrono::system_clock::now();
+		// if (diff > 10)
+		// {
+		// 	log::info("diff: " + to_string(diff));
+		// }
 		// log::info("audio_custom_source::getNextAudioBlock");
 		// auto delay = 0;
 		unique_lock lock(sl_);
@@ -592,6 +626,33 @@ namespace uniq::internal
 				// }
 			}
 		}
+
+		// // -clipping~clipping 범위로 제한
+		// constexpr auto clipping = 10.0f;
+		// for (int c_i = 0; c_i < output_channel_num; ++c_i)
+		// {
+		// 	// 클리핑 체크
+		// 	auto clipping_flag = false;
+		// 	const auto& buffer_channel_data = output_buffer->getWritePointer(c_i);
+		// 	for (int i = 0; i < output_sample_num; ++i)
+		// 	{
+		// 		if (buffer_channel_data[i] < -clipping)
+		// 		{
+		// 			buffer_channel_data[i] = -clipping;
+		// 			clipping_flag = true;
+		// 		}
+		// 		else if (clipping < buffer_channel_data[i])
+		// 		{
+		// 			// log::warn("buffer_channel_data[" + to_string(i) + "]: " + to_string(buffer_channel_data[i]));
+		// 			buffer_channel_data[i] = clipping;
+		// 			clipping_flag = true;
+		// 		}
+		// 	}
+		// 	if (clipping_flag)
+		// 	{
+		// 		log::warn("클리핑 발생");
+		// 	}
+		// }
 	}
 
 	auto audio_custom_source::add_audio(const shared_ptr<audio_data>& data, const add_audio_param& param) -> bool
@@ -776,6 +837,7 @@ namespace uniq
 		mt_->call_async([this](){
 			player_->setSource(custom_source_.get());
 			player_->setGain(0.5f);
+			// player_->setGain(1.f);
 			device_manager_->get()->addAudioCallback(player_.get());
 		});
 	}
@@ -882,9 +944,16 @@ namespace uniq
 
 	}
 
-	auto audio_source::audio_load(const string &file_path) -> shared_ptr<audio_source>
+	audio_source::internal::internal(audio_source *audio_source)
 	{
-		const auto data = uniq::internal::audio_data::load(file_path);
+		audio_source_ = audio_source;
+	}
+
+	auto audio_source::internal::audio_load(unique_ptr<InputStream> input_stream,
+	                                        const string &extension, const string &path, const string &name)
+			-> std::shared_ptr<audio_source>
+	{
+		auto data = uniq::internal::audio_data::load(move(input_stream), extension, path, name);
 		if (data == nullptr)
 		{
 			log::println("audio_source::audio_load: data is nullptr");
@@ -897,11 +966,14 @@ namespace uniq
 		return source;
 	}
 
-	auto audio_source::internal::audio_load(unique_ptr<InputStream> input_stream,
-		const string &extension, const string &path, const string &name)
-		-> std::shared_ptr<audio_source>
+	std::shared_ptr<internal::audio_data> audio_source::internal::data_get() const
 	{
-		auto data = uniq::internal::audio_data::load(move(input_stream), extension, path, name);
+		return audio_source_->data_;
+	}
+
+	auto audio_source::audio_load(const string &file_path) -> shared_ptr<audio_source>
+	{
+		const auto data = uniq::internal::audio_data::load(file_path);
 		if (data == nullptr)
 		{
 			log::println("audio_source::audio_load: data is nullptr");
@@ -984,17 +1056,6 @@ namespace uniq
 
 	auto audio_segment::play(const shared_ptr<audio_player> &player) -> bool
 	{
-		if (player == nullptr)
-		{
-			log::error("player is nullptr");
-			return false;
-		}
-		if (source_.expired())
-		{
-			log::info("원본 오디오 소스가 없습니다.");
-			return false;
-		}
-		auto source = source_.lock();
 		const audio_player::play_param _play_param {
 			.id = ID_get(),
 			.sample = {start_cue_->get(), end_cue_->get()},
@@ -1006,7 +1067,34 @@ namespace uniq
 				.duration = {sync_duration_start_, sync_duration_end_}
 			},
 		};
-		return player->add_audio(source->data_, _play_param);
+		return play(player, _play_param);
+	}
+
+	auto audio_segment::play(const std::shared_ptr<audio_player> &player, const audio_player::play_param &param) -> bool
+	{
+		if (player == nullptr)
+		{
+			log::error("player is nullptr");
+			return false;
+		}
+		if (source_.expired())
+		{
+			log::info("원본 오디오 소스가 없습니다.");
+			return false;
+		}
+		return player->add_audio(source_.lock()->data_, param);
+	}
+
+	auto audio_segment::cue_length_get() const -> std::chrono::microseconds
+	{
+		if (source_.expired())
+		{
+			log::error("원본 오디오 소스가 없습니다.");
+			return 0us;
+		}
+		const auto source = source_.lock();
+		const auto length = static_cast<double>(end_cue_->get() - start_cue_->get());
+		return chrono::microseconds(static_cast<int64_t>(length / source->data_->sample_rate_ * 1e6));
 	}
 
 	auto audio_segment::sync_target_add(id_t id) -> bool
@@ -1072,6 +1160,12 @@ namespace uniq
 			return false;
 		}
 		sync_target_set_.erase(it);
+		return true;
+	}
+
+	auto audio_segment::sync_target_remove_all() -> bool
+	{
+		sync_target_set_.clear();
 		return true;
 	}
 

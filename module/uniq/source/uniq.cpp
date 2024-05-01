@@ -62,6 +62,18 @@ namespace uniq
 		return *lhs->start_cue->cue_point < *rhs->group->start_cue->cue_point;
 	}
 
+	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
+		const cue_point_t &rhs) const
+	{
+		return *lhs->group->start_cue->cue_point < rhs;
+	}
+
+	bool timeline::group_callback_set_compare::operator()(const cue_point_t &lhs,
+		const std::shared_ptr<group_callback> &rhs) const
+	{
+		return lhs < *rhs->group->start_cue->cue_point;
+	}
+
 	timeline::timeline(std::string name) : name_(move(name))
 	{
 		last_play_group_grid_ = vector(w_, vector<shared_ptr<timeline_group>>(h_, nullptr));
@@ -72,10 +84,16 @@ namespace uniq
 	{
 	}
 
-	auto timeline::internal::key_group_get(const uint8_t x, const uint8_t y)
+	auto timeline::internal::key_group_get(const uint8_t x, const uint8_t y) const
 	-> std::set<std::shared_ptr<timeline_group>, timeline_group_compare_start_cue> &
 	{
 		return timeline_->key_group_grid_[x][y];
+	}
+
+	auto timeline::internal::group_callback_set_get() const
+	-> std::set<std::shared_ptr<group_callback>, group_callback_set_compare> &
+	{
+		return timeline_->group_callback_set_;
 	}
 
 	string timeline::name_get() const
@@ -210,6 +228,34 @@ namespace uniq
 		return last_play_group_grid_[x][y];
 	}
 
+	void timeline::last_play_group_set(uint8_t x, uint8_t y, const std::shared_ptr<timeline_group> &group)
+	{
+		last_play_group_grid_[x][y] = group;
+	}
+
+	auto timeline::last_play_group_reset_all() -> void
+	{
+		for (auto& row : last_play_group_grid_)
+		{
+			for (auto& last_play_group : row)
+			{
+				last_play_group = nullptr;
+			}
+		}
+	}
+
+	timeline_page::xy::xy(const int8_t x, const int8_t y) : x(x), y(y)
+	{
+	}
+
+	timeline_page::xy::xy(const uint8_t x, const uint8_t y) : x(static_cast<int8_t>(x)), y(static_cast<int8_t>(y))
+	{
+	}
+
+	timeline_page::xy::xy(const int x, const int y) : x(static_cast<int8_t>(x)), y(static_cast<int8_t>(y))
+	{
+	}
+
 	bool timeline_page::set_compare::operator()(const std::shared_ptr<timeline_page> &lhs,
 	                                            const std::shared_ptr<timeline_page> &rhs) const
 	{
@@ -233,12 +279,21 @@ namespace uniq
 
 	bool timeline_page::next_page_set(const std::shared_ptr<timeline_page>& timeline_page, const xy xy)
 	{
-		auto [it, success] = next_page_map.emplace(xy, timeline_page);
-		return success;
+		// auto [it, success] = next_page_map.emplace(xy, timeline_page);
+		// return success;
+		next_page_map[xy] = timeline_page;
+		return true;
+	}
+
+	auto timeline_page::next_page_get(const xy xy) -> std::shared_ptr<timeline_page>
+	{
+		const auto it = next_page_map.find(xy);
+		if (it == next_page_map.end()) return nullptr;
+		return it->second;
 	}
 
 	bool uniq::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
-		const std::shared_ptr<page_callback> &rhs) const
+	                                        const std::shared_ptr<page_callback> &rhs) const
 	{
 		if (const auto cmp = *lhs->page->start_cue->cue_point <=> *rhs->page->start_cue->cue_point; cmp != 0)
 			return cmp < 0;
@@ -487,9 +542,10 @@ namespace uniq
 
 	void uniq::pad_button_down(const uint8_t x, const uint8_t y, const uint8_t velocity)
 	{
-		log::info("pad_button_down: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity));
+		// log::info("pad_button_down: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity));
 		auto target_timeline_index = -1;
 		auto target_group = shared_ptr<timeline_group>();
+		auto next_page_check_flag = true;
 		auto cue_max = timeline::cue_point_t::max();
 		auto current_page_cue = current_page_->start_cue->cue_point.get();
 		auto next_page_iter = page_set_.upper_bound<timeline::cue_point_t>(current_page_cue);
@@ -503,25 +559,45 @@ namespace uniq
 			auto group_end_iter = key_group.lower_bound<timeline::cue_point_t>(next_page_cue);
 			if (group_start_iter == key_group.end() || group_start_iter == group_end_iter) continue; // 재생할 그룹이 없음
 			auto last_play_group = timeline_->last_play_group_get(x, y);
+			auto next_page_flag = false;
 			set<shared_ptr<timeline_group>, timeline::timeline_group_compare_start_cue>::iterator group_next_iter;
 			if (!last_play_group)
 			{
 				group_next_iter = group_start_iter;
-				// last_play_group = *group_start_iter;
 			}
 			else
 			{
 				group_next_iter = next(key_group.find(last_play_group));
 				if (group_next_iter == key_group.end() || next_page_cue <= (*group_next_iter)->start_cue->cue_point.get())
-				{
+				{ // 마지막 재생 그룹이 다음 페이지로 넘어가는 경우
 					group_next_iter = group_start_iter;
+					next_page_flag = true;
 				}
 			}
 			if (auto cue = (*group_next_iter)->start_cue->cue_point.get(); cue < cue_max)
 			{
 				target_timeline_index = i;
-				cue_max = cue;
 				target_group = *group_next_iter;
+				if (!next_page_flag)
+				{
+					cue_max = cue;
+					next_page_check_flag = false;
+				}
+			}
+		}
+		if (next_page_check_flag)
+		{
+			// ReSharper disable once CppTooWideScope
+			const auto next_page = current_page_->next_page_get({x, y});
+			if (next_page)
+			{
+				current_page_ = next_page;
+				log::info("다음 페이지로 이동: " + to_string(current_page_->ID_get()));
+				for (const auto& timeline_ : timeline_list_)
+				{
+					timeline_->last_play_group_reset_all();
+				}
+				return;
 			}
 		}
 		if (target_timeline_index == -1)
@@ -529,12 +605,47 @@ namespace uniq
 			log::warn("재생할 그룹이 없습니다.");
 			return;
 		}
+		const auto& target_timeline = timeline_list_[target_timeline_index];
+		constexpr timeline::cue_point_t start_duration = -200ms;
+		constexpr timeline::cue_point_t end_duration = 50ms;
+		const auto target_group_start_cue = target_group->start_cue->cue_point.get();
+		const auto& group_callback_set = target_timeline->internal.group_callback_set_get();
+		// const auto cue_length = target_group->segment->cue_length_get();
+		// const auto target_group_end_cue = target_group_start_cue + cue_length;
+		// auto sync_start_iter = group_callback_set.lower_bound<timeline::cue_point_t>(target_group_start_cue + start_duration);
+		// const auto sync_end_iter = group_callback_set.upper_bound<timeline::cue_point_t>(target_group_start_cue + end_duration);
+		// target_group->segment->sync_target_remove_all();
+		// auto i = 0;
+		// log::info("time_hint: " + to_string(target_group_start_cue.count()));
+		// log::info("sync_target_add:");
+		// while (sync_start_iter != sync_end_iter)
+		// {
+		// 	target_group->segment->sync_target_add((*sync_start_iter)->group->segment->ID_get());
+		// 	log::info("\t" + (*sync_start_iter)->group->segment->source_.lock()->internal.data_get()->name_);
+		// 	log::info("\t" + to_string((*sync_start_iter)->group->start_cue->cue_point.get().count()));
+		// 	++sync_start_iter;
+		// 	i++;
+		// }
+		//TODO: 효율적인 sync_target_add 구현
+		for (auto &group_callback : group_callback_set)
+		{
+			if (group_callback->group == target_group) continue;
+			auto& group = group_callback->group;
+			auto group_end_cue = group->start_cue->cue_point.get() + group->segment->cue_length_get();
+			if (group_end_cue < target_group_start_cue + start_duration) continue;
+			if (target_group_start_cue + end_duration < group->start_cue->cue_point.get()) break;
+			target_group->segment->sync_target_add(group_callback->group->segment->ID_get());
+			// log::info("sync_target_add: " + group->segment->source_.lock()->internal.data_get()->name_);
+		}
+		target_group->segment->sync_duration_set(start_duration, end_duration);
+		target_group->segment->time_hint_set(target_group_start_cue);
 		target_group->segment->play(player_);
+		target_timeline->last_play_group_set(x, y, target_group);
 	}
 
 	void uniq::pad_button_up(const uint8_t x, const uint8_t y)
 	{
-		log::info("pad_button_up: " + to_string(x) + ", " + to_string(y));
+		// log::info("pad_button_up: " + to_string(x) + ", " + to_string(y));
 	}
 
 	void uniq::pad_button_touch(const uint8_t x, const uint8_t y, const uint8_t velocity)

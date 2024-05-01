@@ -107,14 +107,16 @@ int sync_test3()
 	auto as = audio_source::audio_load(audio_file_path.file4);
 	cin.get();
 	// as->play(player);
-	auto max_num = 600;
+	auto max_num = 50;
 	// constexpr double t = 0.333;
 	constexpr double t = 1;
 	constexpr double offset = 44100 * 1.05;
 	constexpr double split = 44100 * t;
 	vector<shared_ptr<audio_segment>> segment_list;
+	auto ii = 0;
 	for (int i = 1; i <= max_num; i++)
 	{
+		ii += i;
 		as->cue_add(offset + split * i);
 		auto s = as->segment_create(offset + split * i - 1);
 		if (!s)
@@ -138,7 +140,7 @@ int sync_test3()
 
 	for(const auto &s : segment_list)
 	{
-		// cin.get();
+		cin.get();
 		cout << s->ID_get() << " play" << endl;
 		cout << s->play(player) << endl;
 	}

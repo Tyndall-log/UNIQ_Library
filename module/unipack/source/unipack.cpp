@@ -51,6 +51,19 @@ namespace uniq::unipack
 	// 	return false;
 	// }
 
+	auto unipack::bom_skip(InputStream &input) -> void
+	{
+		input.setPosition(0);
+		if (input.readNextLine().startsWithChar(0xFEFF))
+		{
+			input.setPosition(3);
+		}
+		else
+		{
+			input.setPosition(0);
+		}
+	}
+
 	auto unipack::find_iter(std::vector<std::tuple<String, int>> &zip_list, const String &path, const String &name)
 		-> vector<tuple<String, int>>::iterator
 	{
@@ -61,9 +74,11 @@ namespace uniq::unipack
 		};
 		auto iter1 = std::lower_bound(zip_list.begin(), zip_list.end(),
 									  path + name.toLowerCase(), find_index_compare);
-		if (iter1 == zip_list.end() || get<0>(*iter1).length() != path.length() + name.length() ||
-			!get<0>(*iter1).startsWith(path) || !get<0>(*iter1).endsWithIgnoreCase(name))
+		if (iter1 == zip_list.end())
 			return zip_list.end();
+		// if (get<0>(*iter1).length() != path.length() + name.length() ||
+		// 	!get<0>(*iter1).startsWith(path) || !get<0>(*iter1).endsWithIgnoreCase(name))
+		// 	return zip_list.end();
 		auto iter2 = std::lower_bound(iter1, zip_list.end(),
 									  path + name, find_index_compare);
 		if (iter2 == zip_list.end())
@@ -91,6 +106,7 @@ namespace uniq::unipack
 		}
 		// log::info(keySound_stream->readEntireStreamAsString().replace("\r","").toStdString());
 		// vector<keysound_info> keysound_list_ptr[8][8][8];
+		bom_skip(*keySound_stream);
 		while(!keySound_stream->isExhausted())
 		{
 			auto line = keySound_stream->readNextLine();
@@ -265,6 +281,7 @@ namespace uniq::unipack
 				}
 				// log::info(info_stream->readEntireStreamAsString().replace("\r","").toStdString());
 				uniq = uniq::create();
+				bom_skip(*info_stream);
 				while(!info_stream->isExhausted())
 				{
 					auto line = info_stream->readNextLine();
@@ -389,6 +406,7 @@ namespace uniq::unipack
 							return false;
 						}
 						const auto &keysound = keysound_list[press_count[x - 1][y - 1] % keysound_list.size()];
+						press_count[x - 1][y - 1]++;
 						auto sound_source_iter = sound_source_map.find(keysound.name);
 						if (sound_source_iter == sound_source_map.end())
 						{
@@ -410,6 +428,7 @@ namespace uniq::unipack
 					}
 					return true;
 				};
+				bom_skip(*autoPlay_stream);
 				while(!autoPlay_stream->isExhausted())
 				{
 					auto line = autoPlay_stream->readNextLine();
@@ -420,6 +439,7 @@ namespace uniq::unipack
 						log::warn("autoPlay 파일에 해석할 수 없는 줄이 있습니다: \"" + line.toStdString() + "\"");
 						continue;
 					}
+					// log::info("line: " + line.toStdString());
 					String command = tokens[0].trim().toLowerCase();
 					if (command == "chain" || command == "c")
 					{
@@ -433,7 +453,56 @@ namespace uniq::unipack
 						current_chain_num = chain_num;
 						//press_count 초기화
 						fill_n(&press_count[0][0], 8 * 8, 0);
-						timeline_page_list.emplace_back(uniq->timeline_page_create(cumulative_delay));
+						if (timeline_page_list.empty())
+						{
+							auto page = uniq->timeline_page_find_floor(0us);
+							page->next_page_set(page, {9, 8});
+							timeline_page_list.emplace_back(page);
+						}
+						else
+						{
+							// auto first_page = timeline_page_list.front();
+							auto last_page = timeline_page_list.back();
+							auto page = uniq->timeline_page_create(cumulative_delay);
+							for (auto y = 1; y <= 8; y++)
+							{
+								auto tp = last_page->next_page_get({9, y});
+								if (9 - chain_num == y)
+								{
+									if (tp)
+									{
+										auto it = ranges::find_if(timeline_page_list,
+										                          [&](const auto& e) { return e == tp; });
+										if (it == timeline_page_list.end())
+										{
+											log::error("autoPlay를 불러오는데 논리 오류가 있습니다.");
+										}
+										else
+										{
+											while (it != timeline_page_list.end())
+											{
+												(*it)->next_page_set(page, {9, y});
+												++it;
+											}
+											page->next_page_set(tp, {9, y});
+										}
+									}
+									else
+									{
+										for (const auto& e : timeline_page_list)
+										{
+											e->next_page_set(page, {9, y});
+										}
+										page->next_page_set(page, {9, y});
+									}
+								}
+								else
+								{
+									if (tp) page->next_page_set(tp, {9, y});
+								}
+							}
+							timeline_page_list.emplace_back(page);
+						}
 					}
 					else if (command == "on" || command == "o")
 					{

@@ -37,7 +37,7 @@ int test1()
 	
 	auto lp = launchpad::create(ADM, list[0], list[0]);
 	lp->program_mode_set(true);
-	lp->input_callback_set([](uint8* data, int size)
+	int callback_id = lp->input_callback_add([](const uint8_t* data, int size)
 	{
 		log::println("MIDI_IN: " + String::toHexString(data, size).toStdString());
 	});

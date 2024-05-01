@@ -351,13 +351,16 @@ namespace uniq
 		audio_source();
 
 	public:
-		static auto audio_load(const std::string &file_path) -> std::shared_ptr<audio_source>;
 		struct internal
 		{
+			audio_source* audio_source_;
+			internal(audio_source* audio_source);
 			static auto audio_load(std::unique_ptr<juce::InputStream> input_stream,
 				const std::string &extension, const std::string &path = {}, const std::string &name = {})
 				-> std::shared_ptr<audio_source>;
-		};
+			[[nodiscard]] auto data_get() const -> std::shared_ptr<uniq::internal::audio_data>;
+		} internal{this};
+		static auto audio_load(const std::string &file_path) -> std::shared_ptr<audio_source>;
 		auto play(const std::shared_ptr<audio_player>& player) -> bool;
 		template<cue_add_mode = cue_add_mode::segment_split_keep_front>
 		auto cue_add(std::uint64_t cue) -> bool;
@@ -402,10 +405,13 @@ namespace uniq
 
 	public:
 		auto play(const std::shared_ptr<audio_player>& player) -> bool;
+		auto play(const std::shared_ptr<audio_player>& player, const audio_player::play_param& param) -> bool;
+		auto cue_length_get() const -> std::chrono::microseconds;
 		auto sync_target_add(id_t id) -> bool;
 		auto sync_target_add(const std::shared_ptr<audio_segment>& segment) -> bool;
 		auto sync_target_remove(id_t id) -> bool;
 		auto sync_target_remove(const std::shared_ptr<audio_segment>& segment) -> bool;
+		auto sync_target_remove_all() -> bool;
 		auto time_hint_set(std::chrono::microseconds time_hint) -> bool;
 		auto sync_duration_set(const sync_duration_t& start, const sync_duration_t& end) -> bool;
 		void start_cue_change(const std::shared_ptr<audio_cue>& cue);
