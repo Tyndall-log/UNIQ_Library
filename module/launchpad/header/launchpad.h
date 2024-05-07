@@ -73,7 +73,7 @@ namespace uniq
 		
 		void init();
 		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
-		void input_button_callback(const std::uint8_t*, int);
+		void input_button_callback(const std::uint8_t*, int) const;
 	public:
 		class midi_device_info : public juce::MidiDeviceInfo
 		{

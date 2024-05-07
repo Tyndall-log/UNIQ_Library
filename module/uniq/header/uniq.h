@@ -172,6 +172,35 @@ namespace uniq
 		int launchpad_button_up_callback_id_{-1};
 		std::set<std::shared_ptr<page_callback>, page_set_compare> page_set_;
 		std::shared_ptr<timeline_page> current_page_;
+		class guide_timer : public juce::HighResolutionTimer
+		{
+			// uniq* uniq_;
+			void hiResTimerCallback() override;
+		} guide_timer_;
+		int guide_timer_interval_{100};
+		bool guide_start_{false};
+		bool guide_play_{false};
+		const cue_point_t guide_simul_ = std::chrono::milliseconds(20);
+		struct guide_color
+		{
+			uint8_t r {0x3F};
+			uint8_t g {0x00};
+			uint8_t b {0x7F};
+		} guide_color_;
+		struct guide_group
+		{
+			std::shared_ptr<timeline_group> group;
+			bool is_played{false};
+			// std::shared_ptr<timeline_page> page;
+		};
+		std::deque<guide_group> guide_group_deque_;
+		cue_point_t guide_cue_{0};
+		cue_point_t guide_cue_step_{std::chrono::milliseconds(500)};
+		// std::shared_ptr<timeline_page> guide_page_;
+
+		void guide_update();
+		void guide_togle();
+		bool guide_button_check(uint8_t x, uint8_t y);
 		// std::shared_ptr<pad_key_info> pad_key_info_ = std::make_shared<pad_key_info>();
 	protected:
 		uniq();
@@ -208,6 +237,12 @@ namespace uniq
 		// bool timeline_remove(const std::shared_ptr<timeline> &timeline);
 		// std::shared_ptr<timeline_group> timeline_group_add(const std::shared_ptr<timeline_group> &group);
 		// bool timeline_group_remove(const std::shared_ptr<timeline_group> &timeline_group);
+		auto guide_start(const cue_point_t &cue = std::chrono::microseconds(0)) -> void;
+		auto guide_resume(const cue_point_t &cue = std::chrono::microseconds(0)) -> void;
+		auto guide_position_set(const cue_point_t &cue) -> void;
+		auto guide_position_get() -> cue_point_t;
+		auto guide_pause() -> void;
+		auto guide_stop() -> void;
 		bool launchpad_connect(const std::shared_ptr<launchpad> &launchpad);
 		bool launchpad_auto_connect();
 		bool launchpad_disconnect_all();

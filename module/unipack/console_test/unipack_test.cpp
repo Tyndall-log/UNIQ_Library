@@ -17,6 +17,7 @@ int unipack_test1()
 	const auto current_path = filesystem::current_path();
 	const set<string> extensions = {".zip", ".uni"};
 	string file = unipack_file_path::file1;
+	vector<string> files;
 	for (const auto &entry : filesystem::directory_iterator(current_path))
 	{
 		if (entry.is_regular_file())
@@ -24,15 +25,26 @@ int unipack_test1()
 			const auto& path = entry.path();
 			if (auto ext = path.extension().string(); extensions.contains(ext))
 			{
-				file = path.string();
-				break;
+				files.push_back(path.string());
 			}
 		}
 	}
-
-	if (file.empty())
+	ranges::sort(files);
+	cout << "찾은 유니팩: " << endl;
+	for (const auto &f : files)
 	{
-		cout << "파일이 없습니다." << endl;
+		cout << "\t" << f << endl;
+	}
+	if (!files.empty())
+	{
+		file = files.front();
+	}
+
+	if (file.empty() || !filesystem::exists(file))
+	{
+		cout << "현재 폴더 위치에서 *.zip 또는 *.uni 파일을 찾을 수 없습니다." << endl;
+		cout << "종료하려면 아무 키나 누르세요.";
+		cin.get();
 		return 1;
 	}
 

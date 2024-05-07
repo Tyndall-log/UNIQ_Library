@@ -322,6 +322,329 @@ namespace uniq
 		return lhs < *rhs->page->start_cue->cue_point;
 	}
 
+	void uniq::guide_timer::hiResTimerCallback()
+	{
+		//TODO: guide_timer
+	}
+
+	void uniq::guide_update()
+	{
+		if (!guide_start_ || guide_play_)
+		{
+			while (!guide_group_deque_.empty())
+			{
+				auto guide_group = guide_group_deque_.front();
+				auto x = guide_group.group->button_x.get();
+				auto y = guide_group.group->button_y.get();
+				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				guide_group_deque_.pop_front();
+			}
+			return;
+		}
+
+		//guide_cue_보다 같거나 큰 첫 번째 오디오 그룹을 찾아서 guide_cue를 설정
+		auto guide_target_cue = timeline::cue_point_t::max();
+		auto guide_target_group = shared_ptr<timeline_group>();
+		for (const auto& timeline_ : timeline_list_)
+		{
+			auto& group_callback_set = timeline_->internal.group_callback_set_get();
+			auto it = group_callback_set.lower_bound(guide_cue_);
+			if (it == group_callback_set.end()) continue;
+			const auto& group = (*it)->group;
+			auto cue = group->start_cue->cue_point.get();
+			if (cue < guide_target_cue)
+			{
+				guide_target_group = group;
+				guide_target_cue = cue;
+			}
+		}
+
+		//가이드 페이지 확인
+		auto guide_target_page = timeline_page_find_floor(guide_target_cue);
+		if (!guide_target_page)
+		{
+			log::error("가이드 페이지가 없습니다.");
+			return;
+		}
+		if (guide_target_page != current_page_)
+		{
+			int8_t page_x = 0;
+			int8_t page_y = 0;
+			bool page_found = false;
+
+			// BFS로 가이드 페이지 찾기
+			queue<tuple<shared_ptr<timeline_page>, int8_t, int8_t>> page_queue;
+			for (const auto& [xy, page] : current_page_->next_page_map)
+			{
+				page_queue.emplace(page, xy.x, xy.y);
+			}
+			auto while_limit = current_page_->next_page_map.size() * 100;
+			while (!page_queue.empty() && 0 < --while_limit)
+			{
+				auto page_tuple = page_queue.front();
+				auto page = get<0>(page_tuple);
+				auto x = get<1>(page_tuple);
+				auto y = get<2>(page_tuple);
+				page_queue.pop();
+				if (page == guide_target_page)
+				{
+					page_x = x;
+					page_y = y;
+					page_found = true;
+					break;
+				}
+				for (const auto& [xy_, p] : page->next_page_map)
+				{
+					page_queue.emplace(p, x, y);
+				}
+			}
+
+			if (page_found)
+			{
+				//현재 페이지에 해당하는 LED 표시
+				launchpad_->rgb_set(page_x, page_y, guide_color_.r, guide_color_.g, guide_color_.b);
+			}
+			else
+			{
+				log::error("다음 가이드 페이지로 가는 버튼이 없습니다.");
+				return;
+			}
+		}
+		auto guide_target_next_page = page_set_.upper_bound(guide_target_page);
+
+
+		while (!guide_group_deque_.empty())
+		{
+			auto guide_group = guide_group_deque_.front();
+			if (guide_group.group->start_cue->cue_point.get() < guide_target_cue || guide_group.is_played)
+			{
+				guide_group_deque_.pop_front();
+				auto x = guide_group.group->button_x.get();
+				auto y = guide_group.group->button_y.get();
+				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				continue;
+			}
+			break;
+		}
+
+		while (!guide_group_deque_.empty())
+		{
+			auto guide_group = guide_group_deque_.back();
+			if (guide_target_cue + guide_simul_ < guide_group.group->start_cue->cue_point.get())
+			{
+				guide_group_deque_.pop_back();
+				auto x = guide_group.group->button_x.get();
+				auto y = guide_group.group->button_y.get();
+				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				continue;
+			}
+			break;
+		}
+
+		vector<queue<shared_ptr<timeline_group>>> guide_group_vector;
+		guide_group_vector.reserve(timeline_list_.size());
+		for (const auto& timeline_ : timeline_list_)
+		{
+			auto& group_callback_set = timeline_->internal.group_callback_set_get();
+			queue<shared_ptr<timeline_group>> guide_group_queue;
+			auto it_start = group_callback_set.lower_bound(guide_target_cue);
+			auto max_cue = guide_target_cue + guide_simul_;
+			while (it_start != group_callback_set.end())
+			{
+				if ((*it_start)->group->start_cue->cue_point.get() < max_cue)
+				{
+					auto& group_callback = *it_start;
+					auto& group = group_callback->group;
+					// guide_group_queue.push(group);
+					guide_group_deque_.emplace_back(group, false);
+					auto x = group->button_x.get();
+					auto y = group->button_y.get();
+					launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
+				}
+				++it_start;
+			}
+			// if (it_start == group_callback_set.end()) continue;
+			// //TODO: 알고리즘 교체
+			// // ++it_start;
+			// // if (next(it_start) == group_callback_set.end()) continue;
+			// auto it_end = group_callback_set.upper_bound((*next(it_start))->group->start_cue->cue_point.get() + guide_simul_);
+			// while (it_start != it_end)
+			// {
+			// 	auto& group_callback = *it_start;
+			// 	auto& group = group_callback->group;
+			// 	guide_group_queue.push(group);
+			// 	++it_start;
+			// }
+			guide_group_vector.emplace_back(move(guide_group_queue));
+		}
+
+		// while(true)
+		// {
+		// 	auto min_cue_index = -1;
+		// 	auto min_cue = timeline::cue_point_t::max();
+		// 	for (auto i = 0; i < guide_group_vector.size(); i++)
+		// 	{
+		// 		if (guide_group_vector[i].empty()) continue;
+		// 		const auto& group = guide_group_vector[i].front();
+		// 		if (const auto& cue = group->start_cue->cue_point.get(); cue < min_cue)
+		// 		{
+		// 			min_cue = cue;
+		// 			min_cue_index = i;
+		// 		}
+		// 	}
+		// 	if (min_cue_index == -1) break;
+		// 	auto& group = guide_group_vector[min_cue_index].front();
+		// 	guide_group_deque_.emplace_back(group, false);
+		// 	auto x = group->button_x.get();
+		// 	auto y = group->button_y.get();
+		// 	launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
+		// 	guide_group_vector[min_cue_index].pop();
+		// }
+
+		// if (!guide_group_deque_.empty())
+		// {
+		// 	guide_cue_ = guide_group_deque_.front().group->start_cue->cue_point.get();
+		// }
+
+		// auto guide_page = timeline_page_find_floor(guide_cue_);
+		// if (!guide_page)
+		// {
+		// 	log::error("가이드 페이지가 없습니다.");
+		// 	return false;
+		// }
+
+	}
+
+	void uniq::guide_togle()
+	{
+		if (guide_start_)
+		{
+			guide_stop();
+		}
+		else
+		{
+			guide_start(0us);
+		}
+	}
+
+	bool uniq::guide_button_check(const uint8_t x, const uint8_t y)
+	{
+		if (guide_start_ || !guide_play_)
+		{
+			if (x == 3 && y == 9)
+			{
+				// //guide_cue_보다 작으면서 가장 큰 값의 group을 찾아서 가이드로 설정
+				// shared_ptr<timeline_group> target_group;
+				// for (const auto& timeline_ : timeline_list_)
+				// {
+				// 	auto& group_callback_set = timeline_->internal.group_callback_set_get();
+				// 	auto it = group_callback_set.lower_bound(guide_cue_);
+				// }
+				guide_cue_ -= guide_cue_step_;
+				guide_update();
+				return true;
+			}
+
+			if (x == 4 && y == 9)
+			{
+				guide_cue_ += guide_cue_step_;
+				guide_update();
+				return true;
+			}
+		}
+
+		//가이드 토글
+		if (x == 5 && y == 9)
+		{
+			guide_togle();
+			return true;
+		}
+
+		//가이드 누름 확인
+		{
+			auto guide_page = timeline_page_find_floor(guide_cue_);
+			if (!guide_page)
+			{
+				log::error("가이드 페이지가 없습니다.");
+				return false;
+			}
+			if (guide_page == current_page_)
+			{
+				shared_ptr<timeline_group> target_group;
+				for (auto& guide_group : guide_group_deque_)
+				{
+					auto guide_group_x = guide_group.group->button_x.get();
+					auto guide_group_y = guide_group.group->button_y.get();
+					if (guide_group_x == x && guide_group_y == y && !guide_group.is_played)
+					{
+						guide_group.is_played = true;
+						target_group = guide_group.group;
+						break;
+					}
+				}
+				if (target_group)
+				{
+					// guide_cue_ = target_group->start_cue->cue_point.get();
+					//TODO: 가이드 누름 처리
+					bool cue_update = false;
+					{
+						//임시
+						auto key_group = timeline_list_[0]->internal.key_group_get(x, y);
+						auto group_it = key_group.lower_bound(target_group);
+						if (group_it == key_group.end())
+						{
+							timeline_list_[0]->last_play_group_set(x, y, nullptr);
+						}
+						else if (group_it == key_group.begin())
+						{
+							timeline_list_[0]->last_play_group_set(x, y, nullptr);
+							cue_update = true;
+						}
+						else
+						{
+							timeline_list_[0]->last_play_group_set(x, y, *prev(group_it));
+							cue_update = true;
+						}
+					}
+					if (cue_update)
+					{
+						auto guide_next_cue = timeline::cue_point_t::max();
+						for (const auto& timeline_ : timeline_list_)
+						{
+							auto& group_callback_set = timeline_->internal.group_callback_set_get();
+							auto it = group_callback_set.upper_bound(guide_group_deque_.front().group->start_cue->cue_point.get());
+							if (it == group_callback_set.end()) continue;
+							const auto& group = (*it)->group;
+							auto cue = group->start_cue->cue_point.get();
+							if (cue < guide_next_cue)
+							{
+								guide_next_cue = cue;
+							}
+						}
+						if (guide_next_cue != timeline::cue_point_t::max())
+						{
+							guide_cue_ = guide_next_cue;
+						}
+						else
+						{
+							guide_cue_ += guide_cue_step_;
+						}
+					}
+					guide_update();
+					launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00);
+					// return true;
+				}
+			}
+		}
+
+		// //가이드 표시
+		// if (guide_start_ || !guide_play_)
+		// {
+		// 	launchpad_->rgb_set(x, y, 0x7F, 0x00, 0x00);
+		// }
+		return false;
+	}
+
 	uniq::uniq()
 	{
 		current_page_ = timeline_page_create(0us);
@@ -486,6 +809,48 @@ namespace uniq
 		return true;
 	}
 
+	auto uniq::guide_start(const cue_point_t &cue) -> void
+	{
+		guide_start_ = true;
+		guide_play_ = false;
+		auto next_page = timeline_page_find_floor(cue);
+		if (!next_page)
+		{
+			log::error("다음 페이지가 없습니다.");
+			return;
+		}
+		current_page_ = next_page;
+		guide_cue_ = cue;
+		guide_update();
+	}
+
+	auto uniq::guide_resume(const cue_point_t &cue) -> void
+	{
+		//TODO: guide_resume
+		// if (!guide_start_)
+		// {
+		// 	log::error("가이드가 시작되지 않았습니다.");
+		// 	return;
+		// }
+		// guide_play_ = true;
+		// auto next_page = timeline_page_find_floor(cue);
+		// if (!next_page)
+		// {
+		// 	log::error("다음 페이지가 없습니다.");
+		// 	return;
+		// }
+		// current_page_ = next_page;
+		// guide_timer_.startTimer(guide_timer_interval_);
+	}
+
+	auto uniq::guide_stop() -> void
+	{
+		guide_start_ = false;
+		guide_play_ = false;
+		guide_update();
+		// guide_timer_.stopTimer();
+	}
+
 	bool uniq::launchpad_connect(const std::shared_ptr<launchpad> &launchpad)
 	{
 		launchpad_ = launchpad;
@@ -543,6 +908,14 @@ namespace uniq
 	void uniq::pad_button_down(const uint8_t x, const uint8_t y, const uint8_t velocity)
 	{
 		// log::info("pad_button_down: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity));
+
+		//누른키 표시
+		{
+			launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00);
+		}
+
+		if (guide_button_check(x, y)) return;
+
 		auto target_timeline_index = -1;
 		auto target_group = shared_ptr<timeline_group>();
 		auto next_page_check_flag = true;
@@ -597,6 +970,7 @@ namespace uniq
 				{
 					timeline_->last_play_group_reset_all();
 				}
+				guide_update();
 				return;
 			}
 		}
@@ -610,22 +984,6 @@ namespace uniq
 		constexpr timeline::cue_point_t end_duration = 50ms;
 		const auto target_group_start_cue = target_group->start_cue->cue_point.get();
 		const auto& group_callback_set = target_timeline->internal.group_callback_set_get();
-		// const auto cue_length = target_group->segment->cue_length_get();
-		// const auto target_group_end_cue = target_group_start_cue + cue_length;
-		// auto sync_start_iter = group_callback_set.lower_bound<timeline::cue_point_t>(target_group_start_cue + start_duration);
-		// const auto sync_end_iter = group_callback_set.upper_bound<timeline::cue_point_t>(target_group_start_cue + end_duration);
-		// target_group->segment->sync_target_remove_all();
-		// auto i = 0;
-		// log::info("time_hint: " + to_string(target_group_start_cue.count()));
-		// log::info("sync_target_add:");
-		// while (sync_start_iter != sync_end_iter)
-		// {
-		// 	target_group->segment->sync_target_add((*sync_start_iter)->group->segment->ID_get());
-		// 	log::info("\t" + (*sync_start_iter)->group->segment->source_.lock()->internal.data_get()->name_);
-		// 	log::info("\t" + to_string((*sync_start_iter)->group->start_cue->cue_point.get().count()));
-		// 	++sync_start_iter;
-		// 	i++;
-		// }
 		//TODO: 효율적인 sync_target_add 구현
 		for (auto &group_callback : group_callback_set)
 		{
@@ -646,6 +1004,10 @@ namespace uniq
 	void uniq::pad_button_up(const uint8_t x, const uint8_t y)
 	{
 		// log::info("pad_button_up: " + to_string(x) + ", " + to_string(y));
+		//누른키 표시
+		{
+			launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+		}
 	}
 
 	void uniq::pad_button_touch(const uint8_t x, const uint8_t y, const uint8_t velocity)

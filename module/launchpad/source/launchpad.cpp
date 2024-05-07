@@ -78,7 +78,7 @@ namespace uniq
 		return get<0>(it->second);
 	}
 
-	void launchpad::input_button_callback(const uint8_t* const data, const int size)
+	void launchpad::input_button_callback(const uint8_t* const data, const int size) const
 	{
 		if (size < 3) return;
 		auto& note = data[0];
@@ -86,7 +86,11 @@ namespace uniq
 		const auto y = data[1] / 10;
 		const auto v = data[2];
 		SpinLock::ScopedLockType lock(mutex);
-		for (auto& [k, f] : input_callback_function_map_)
+		auto input_callback_function_map = input_callback_function_map_;
+		auto input_button_down_callback_map = input_button_down_callback_map_;
+		auto input_button_up_callback_map = input_button_up_callback_map_;
+		SpinLock::ScopedUnlockType unlock(mutex);
+		for (auto& [k, f] : input_callback_function_map)
 		{
 			f(data, size);
 		}
@@ -94,18 +98,18 @@ namespace uniq
 		{
 			if (0 < v)
 			{
-				for (auto& [k, f] : input_button_down_callback_map_)
+				for (auto& [k, f] : input_button_down_callback_map)
 					f(x, y, v);
 			}
 			else
 			{
-				for (auto& [k, f] : input_button_up_callback_map_)
+				for (auto& [k, f] : input_button_up_callback_map)
 					f(x, y);
 			}
 		}
 		else if (0x80 <= note && note <= 0x8F)
 		{
-			for (auto& [k, f] : input_button_up_callback_map_)
+			for (auto& [k, f] : input_button_up_callback_map)
 				f(x, y);
 		}
 	}

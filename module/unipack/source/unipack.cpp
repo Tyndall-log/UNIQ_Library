@@ -370,6 +370,7 @@ namespace uniq::unipack
 				// log::info(autoPlay_stream->readEntireStreamAsString().replace("\r","").toStdString());
 				uniq::cue_point_t cumulative_delay{0};
 				auto current_chain_num = 0;
+				auto chain_delay = 0us;
 				uint16_t press_count[8][8] = {};
 				auto on_off_touch = [&]<autoplay_command_type type>(const String &line, const StringArray &tokens)
 				{
@@ -391,6 +392,7 @@ namespace uniq::unipack
 						return false;
 					}
 					// log::info("touch: " + to_string(x) + ", " + to_string(y));
+					chain_delay = 1ms;
 					if constexpr (type == act::on || type == act::touch)
 					{
 						auto group = timeline_group::create();
@@ -416,6 +418,7 @@ namespace uniq::unipack
 						group->segment = sound_source_iter->second->segment_create(0);
 						group->start_cue = timeline_cue::create(cumulative_delay);
 						main_timeline->group_add(group);
+						// cout << "d "<<group->segment->cue_length_get() << endl;
 					}
 					else if constexpr (type == act::off)
 					{
@@ -463,7 +466,7 @@ namespace uniq::unipack
 						{
 							// auto first_page = timeline_page_list.front();
 							auto last_page = timeline_page_list.back();
-							auto page = uniq->timeline_page_create(cumulative_delay);
+							auto page = uniq->timeline_page_create(cumulative_delay + chain_delay);
 							for (auto y = 1; y <= 8; y++)
 							{
 								auto tp = last_page->next_page_get({9, y});
@@ -525,6 +528,7 @@ namespace uniq::unipack
 							continue;
 						}
 						cumulative_delay += 1us * delay;
+						chain_delay = 0us;
 					}
 					else
 					{
