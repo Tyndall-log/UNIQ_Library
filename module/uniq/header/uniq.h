@@ -174,10 +174,12 @@ namespace uniq
 		std::shared_ptr<timeline_page> current_page_;
 		class guide_timer : public juce::HighResolutionTimer
 		{
-			// uniq* uniq_;
+			uniq* uniq_;
+		public:
+			explicit guide_timer(uniq* uniq);
 			void hiResTimerCallback() override;
-		} guide_timer_;
-		int guide_timer_interval_{100};
+		} guide_timer_{this};
+		std::chrono::milliseconds guide_timer_interval_{10};
 		bool guide_start_{false};
 		bool guide_play_{false};
 		const cue_point_t guide_simul_ = std::chrono::milliseconds(20);
@@ -194,14 +196,23 @@ namespace uniq
 			// std::shared_ptr<timeline_page> page;
 		};
 		std::deque<guide_group> guide_group_deque_;
-		cue_point_t guide_cue_{0};
-		cue_point_t guide_cue_step_{std::chrono::milliseconds(500)};
+		cue_point_t guide_cue_{0}; // 현재 가이드 위치
+		cue_point_t guide_cue_step_{std::chrono::milliseconds(500)}; // 가이드 이동 간격
+		cue_point_t guide_play_cue_{0}; // 가이드 재생 시작 위치
+		// std::chrono::steady_clock::time_point guide_start_play_time_;
+		// std::chrono::steady_clock::time_point guide_pause_time_;
+		// std::chrono::time_point<std::chrono::system_clock> guide_button_down_time_;
+		std::chrono::steady_clock::time_point guide_toggle_button_down_time_;
+		std::chrono::milliseconds guide_toggle_press_duration_{300};
 		// std::shared_ptr<timeline_page> guide_page_;
 
-		void guide_update();
+		void guide_update(bool play_audio_flag = false);
 		void guide_togle();
-		bool guide_button_check(uint8_t x, uint8_t y);
+		bool guide_button_down_check(uint8_t x, uint8_t y);
+		bool guide_button_up_check(uint8_t x, uint8_t y);
 		// std::shared_ptr<pad_key_info> pad_key_info_ = std::make_shared<pad_key_info>();
+
+		void audio_play(const std::shared_ptr<timeline>& target_timeline, const std::shared_ptr<timeline_group>& target_group);
 	protected:
 		uniq();
 	public:

@@ -82,6 +82,7 @@ endif()
 
 add_subdirectory(module/core)  #core 모듈 추가
 add_subdirectory(module/launchpad)  #launchpad 모듈 추가
+add_subdirectory(module/lightshow)  #audio 모듈 추가
 add_subdirectory(module/audio)  #audio 모듈 추가
 add_subdirectory(module/uniq)  #uniq 모듈 추가
 add_subdirectory(module/unipack)  #unipack 모듈 추가
