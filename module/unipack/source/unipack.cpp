@@ -114,7 +114,7 @@ namespace uniq::unipack
 			auto tokens = StringArray::fromTokens(line, false);
 			if (tokens.size() < 4)
 			{
-				log::warn("keySound 파일에 해석할 수 없는 줄이 있습니다: \"" + line.String::toStdString() + "\"");
+				log::warn("keySound 파일에 해석할 수 없는 줄이 있습니다: \"" + line.toStdString() + "\"");
 				continue;
 			}
 			uint8_t chain = tokens[0].getIntValue();
@@ -123,12 +123,12 @@ namespace uniq::unipack
 			auto sound_name = tokens[3].trim().toStdString();
 			if (chain < 1 || 8 < chain || row < 1 || 8 < row || col < 1 || 8 < col)
 			{
-				log::warn("keySound 파일에 범위를 벗어난 값이 있습니다: \"" + line.String::toStdString() + "\"");
+				log::warn("keySound 파일에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
 				continue;
 			}
 			if (sound_name.empty())
 			{
-				log::warn("keySound 파일에 sound_name이 비어있습니다: \"" + line.String::toStdString() + "\"");
+				log::warn("keySound 파일에 sound_name이 비어있습니다: \"" + line.toStdString() + "\"");
 				continue;
 			}
 			// ReSharper disable once CppUseStructuredBinding
@@ -140,6 +140,183 @@ namespace uniq::unipack
 				if (6 <= tokens.size())
 				{
 					keysound.wormhole = tokens[5].getIntValue();
+				}
+			}
+		}
+		return true;
+	}
+
+	auto unipack::keyled_part(ZipFile &zip, vector<tuple<String, int>> &zip_list,
+		const String &root_path, vector<keyled_info> keyled_list[8][8][8]) -> bool
+	{
+		//keyLED 폴더 불러오기
+		auto keyLED_iter = find_iter(zip_list, root_path, "keyLED/");
+		if (keyLED_iter == zip_list.end())
+		{
+			log::warn("keyLED 폴더가 존재하지 않습니다.");
+			return false;
+		}
+		// log::info("keyLED 폴더 불러오기");
+		const auto keyLED_path = get<0>(*keyLED_iter).upToLastOccurrenceOf("/", true, false);
+
+		set<keyled_info, keyled_info_compare> keyled_info_set[8][8][8];
+		for(;keyLED_iter != zip_list.end() && get<0>(*keyLED_iter).startsWith(keyLED_path);++keyLED_iter)
+		{
+			auto keyLED_name = get<0>(*keyLED_iter).substring(keyLED_path.length());
+			if (keyLED_name.isEmpty() || keyLED_name.contains("/")) continue;
+			auto keyLED_name_tokens = StringArray::fromTokens(keyLED_name, false);
+			if (keyLED_name_tokens.size() < 3)
+			{
+				log::warn("keyLED 파일 이름이 잘못되었습니다: \"" + keyLED_name.toStdString() + "\"");
+				continue;
+			}
+			const uint8_t chain = keyLED_name_tokens[0].getIntValue();
+			const uint8_t row = keyLED_name_tokens[1].getIntValue();
+			const uint8_t col = keyLED_name_tokens[2].getIntValue();
+			const uint8_t repeat = keyLED_name_tokens.size() < 4 ? 1 : keyLED_name_tokens[3].getIntValue();
+			String order_name = keyLED_name_tokens.size() < 5 ? "" : keyLED_name_tokens[4];
+			unique_ptr<InputStream> keyLED_stream(zip.createStreamForEntry(get<1>(*keyLED_iter)));
+			if (!keyLED_stream)
+			{
+				log::warn("keyLED 파일을 읽을 수 없습니다.");
+				continue;
+			}
+			// if (row==7 && col==2 && chain==1)
+			// 	log::info(keyLED_stream->readEntireStreamAsString().replace("\r","").toStdString());
+			// log::info(keyLED_stream->readEntireStreamAsString().replace("\r","").toStdString());
+			// keyLED_stream->setPosition(0);
+			bom_skip(*keyLED_stream);
+			lightshow::rgbav_sequence_grid::sequence_time_t delay{0};
+			lightshow::rgbav_sequence_grid rgbav_grid(10, 10);
+			while(!keyLED_stream->isExhausted())
+			{
+				auto line = keyLED_stream->readNextLine();
+				if (line.isEmpty()) continue;
+				auto led_tokens = StringArray::fromTokens(line, false);
+				if (led_tokens.size() < 2)
+				{
+					log::warn("keyLED 파일에 해석할 수 없는 줄이 있습니다: \"" + line.toStdString() + "\"");
+					continue;
+				}
+				String command = led_tokens[0].trim().toLowerCase();
+				if (command == "on" || command == "o")
+				{
+					if (led_tokens.size() < 4)
+					{
+						log::warn("on 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");
+						continue;
+					}
+					uint8_t led_row;
+					uint8_t led_col;
+					if (led_tokens[1].containsOnly("0123456789"))
+					{
+						led_row = led_tokens[1].getIntValue();
+						led_col = led_tokens[2].getIntValue();
+						if (led_col < 1 || 8 < led_col || led_row < 1 || 8 < led_row)
+						{
+							log::warn("on 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+					}
+					else
+					{
+						const uint8_t mc = led_tokens[2].getIntValue();
+						if (mc < 1 || 32 < mc)
+						{
+							log::warn("on 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+						//왼쪽 상단부터 시계 방향으로 1~32
+						if (mc < 9) { led_col = mc; led_row = 0; }
+						else if (mc < 17) { led_col = 9; led_row = mc - 8; }
+						else if (mc < 25) { led_col = 25 - mc; led_row = 9; }
+						else { led_col = 0; led_row = 33 - mc; }
+					}
+					// ReSharper disable once CppTooWideScopeInitStatement
+					String led_color_hex = led_tokens[3].trim();
+					if (led_color_hex == "auto" || led_color_hex == "a")
+					{
+						if (led_tokens.size() < 5)
+						{
+							log::warn("on 명령어에 velocity가 없습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+						const uint8_t velocity = led_tokens[4].getIntValue();
+						rgbav_grid.rgbav_add(led_col, 9 - led_row, delay, lightshow::rgbav{velocity});
+					}
+					else
+					{
+						const auto hex = hexStringToBytes(led_color_hex);
+						if (hex.size() != 3)
+						{
+							log::warn("on 명령어에 HEX 색상이 잘못되었습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+						const auto led_color = lightshow::rgbav{hex[0], hex[1], hex[2], 0};
+						rgbav_grid.rgbav_add(led_col, 9 - led_row, delay, led_color);
+					}
+				}
+				else if (command == "off" || command == "f")
+				{
+					if (led_tokens.size() < 3)
+					{
+						log::warn("off 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");
+						continue;
+					}
+					uint8_t led_row;
+					uint8_t led_col;
+					if (led_tokens[1].containsOnly("0123456789"))
+					{
+						led_row = led_tokens[1].getIntValue();
+						led_col = led_tokens[2].getIntValue();
+						if (led_col < 1 || 8 < led_col || led_row < 1 || 8 < led_row)
+						{
+							log::warn("off 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+					}
+					else
+					{
+						const uint8_t mc = led_tokens[2].getIntValue();
+						if (mc < 1 || 32 < mc)
+						{
+							log::warn("off 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
+							continue;
+						}
+						//왼쪽 상단부터 시계 방향으로 1~32
+						if (mc < 9) { led_col = mc; led_row = 0; }
+						else if (mc < 17) { led_col = 9; led_row = mc - 8; }
+						else if (mc < 25) { led_col = 25 - mc; led_row = 9; }
+						else { led_col = 0; led_row = 33 - mc; }
+					}
+					rgbav_grid.rgbav_add(led_col, 9 - led_row, delay, lightshow::rgbav{});
+				}
+				else if (command == "delay" || command == "d")
+				{
+					if (led_tokens.size() < 2)
+					{
+						log::warn("delay 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");
+						continue;
+					}
+					delay += led_tokens[1].getIntValue() * 1ms;
+				}
+				else
+				{
+					log::warn("keyLED 파일에 알 수 없는 명령어가 있습니다: \"" + line.toStdString() + "\"");
+				}
+			}
+			keyled_info_set[chain - 1][col - 1][8 - row].emplace(keyled_info{order_name.toStdString(), repeat, rgbav_grid});
+		}
+		for (int chain = 0; chain < 8; chain++)
+		{
+			for (int col = 0; col < 8; col++)
+			{
+				for (int row = 0; row < 8; row++)
+				{
+					for (auto &keyled : keyled_info_set[chain][col][row])
+					{
+						keyled_list[chain][col][row].emplace_back(keyled);
+					}
 				}
 			}
 		}
@@ -348,6 +525,14 @@ namespace uniq::unipack
 				keysound_part(zip, zip_list, root_path, keysound_grid);
 			}
 
+			//keyLED 폴더 읽기
+			vector<keyled_info> keyled_grid[8][8][8]; //chain, x, y
+			while(uniq)
+			{
+				keyled_part(zip, zip_list, root_path, keyled_grid);
+				break;
+			}
+
 			//autoPlay 파일 읽기
 			vector<shared_ptr<timeline_page>> timeline_page_list;
 			vector<shared_ptr<timeline>> timeline_list;
@@ -400,6 +585,15 @@ namespace uniq::unipack
 						group->button_y.set(static_cast<int8_t>(y));
 						group->press_duration = -1ms; //정의되지 않은 값
 						// group->segment = sound_source_map["test"];
+						//keyled_list
+						const auto &keyled_list = keyled_grid[current_chain_num - 1][x - 1][y - 1];
+						if (!keyled_list.empty())
+						{
+							const auto &keyled = keyled_list[press_count[x - 1][y - 1] % keyled_list.size()];
+							// group->rgbav_grid = make_shared<lightshow::rgbav_sequence_grid>(keyled.rgbav_grid);
+							group->lightshow_data = lightshow::lightshow_data::create(keyled.rgbav_grid, keyled.repeat);
+						}
+
 						//keysound_list
 						const auto &keysound_list = keysound_grid[current_chain_num - 1][x - 1][y - 1];
 						if (keysound_list.empty())

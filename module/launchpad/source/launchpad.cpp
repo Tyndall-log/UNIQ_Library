@@ -135,7 +135,7 @@ namespace uniq
 			if (launchpad_list.empty())
 			{
 				LED_timer = make_unique<LED_global_timer>();
-				LED_timer->startTimer(4);
+				LED_timer->startTimer(interval);
 			}
 			launchpad_list.insert(this);
 			LED_grid_current = vector<vector<VRGB>>(LED_w, vector<VRGB>(LED_h));
@@ -145,6 +145,7 @@ namespace uniq
 			automatic_transmission = true;
 			immediate_transmission = false;
 		}
+		lightshow_ = lightshow::lightshow::create();
 	}
 	
 	launchpad::launchpad(shared_ptr<AudioDeviceManager>& adm, const midi_device_info& mdi_input, const midi_device_info& mdi_output)
@@ -238,30 +239,94 @@ namespace uniq
 	void launchpad::LED_send()
 	{
 		if (!output) return;
+		//lightshow_
+		rgbav_grid_calculate();
+
 		auto p = LED_raw_data.get() + 6;
 		for (auto x = 0; x < LED_w; x++)
 		{
 			auto& c_x = LED_grid_current[x];
 			auto& t_x = LED_grid_target[x];
+			auto& c2_x = lightshow_->internal.rgbav_grid_current[x];
+			auto& t2_x = lightshow_->internal.rgbav_grid_target[x];
+			auto& rf_x = lightshow_->internal.reset_flag[x];
 			for (auto y = 0; y < LED_h; y++)
 			{
 				auto& c_xy = c_x[y];
 				auto& t_xy = t_x[y];
-				if (c_xy == t_xy) continue;
-				c_xy = t_xy;
-				if (t_xy.v == 0xFF)
+				auto& c2_xyc = c2_x[y].color;
+				auto& c2_xyi = c2_x[y].id;
+				auto& t2_xyc = t2_x[y].color;
+				auto& t2_xyi = t2_x[y].id;
+				// auto& rf_xy = rf_x[y];
+
+				bool t_xy_off_flag = t_xy.v == 0xFF ? t_xy.r == 0 && t_xy.g == 0 && t_xy.b == 0 : t_xy.v == 0;
+				int mode; // 0: none, 1: vrgb, 2: rgbav
+				if (t_xy_off_flag)
 				{
-					*p++ = 0x03;
-					*p++ = static_cast<uint8>(y * 10 + x);
-					*p++ = t_xy.r;
-					*p++ = t_xy.g;
-					*p++ = t_xy.b;
+					if (c2_xyc != t2_xyc) mode = 2;
+					else
+					{
+						if (c_xy == t_xy) mode = 0;
+						else mode = 1;
+					}
 				}
 				else
 				{
-					*p++ = 0x00;
-					*p++ = static_cast<uint8>(y * 10 + x);
-					*p++ = t_xy.v;
+					if (c_xy == t_xy) mode = 0;
+					else mode = 1;
+				}
+				// if (rf_xy)
+				// {
+				// 	// t2_xyc.off_set();
+				// 	mode = 2;
+				// }
+
+				c_xy = t_xy;
+				c2_xyc = t2_xyc;
+				c2_xyi = t2_xyi;
+				// rf_xy = false;
+
+				if (mode == 0) continue;
+				if (mode == 1)
+				{
+					if (t_xy.v == 0xFF)
+					{
+						*p++ = 0x03;
+						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = t_xy.r;
+						*p++ = t_xy.g;
+						*p++ = t_xy.b;
+					}
+					else
+					{
+						*p++ = 0x00;
+						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = t_xy.v;
+					}
+				}
+				else
+				{
+					if (!t2_xyc.is_velocity())
+					{
+						*p++ = 0x03;
+						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = t2_xyc.r / 2;
+						*p++ = t2_xyc.g / 2;
+						*p++ = t2_xyc.b / 2;
+					}
+					else
+					{
+						*p++ = 0x00;
+						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = t2_xyc.velocity_get();
+						// if (x==1 && y==1)
+						// {
+						// 	log::info("velocity: " + std::to_string(t2_xyc.velocity_get()));
+						// 	if (t2_xyc.is_off())
+						// 		log::info("off");
+						// }
+					}
 				}
 			}
 		}
@@ -270,7 +335,32 @@ namespace uniq
 		auto m = MidiMessage::createSysExMessage(LED_raw_data.get(), static_cast<int>(p - LED_raw_data.get()));
 		output->sendMessageNow(m);
 	}
-	
+
+	void launchpad::rgbav_grid_calculate() const
+	{
+		auto now = std::chrono::steady_clock::now();
+		auto standard_time = lightshow_->standard_time_get();
+		using sequence_time_t = lightshow::rgbav_sequence_grid::sequence_time_t;
+		auto time = std::chrono::duration_cast<sequence_time_t>(now - standard_time);
+		auto grid = lightshow_->rgbav_array_get(time);
+		for (auto x = 0; x < LED_w; x++)
+		{
+			auto& t_x = lightshow_->internal.rgbav_grid_target[x];
+			for (auto y = 0; y < LED_h; y++)
+			{
+				auto& t_xy = t_x[y];
+				const auto& rgbav_id = grid[x][y];
+				t_xy = rgbav_id;
+				// if (x==2 && y==1)
+				// {
+				// 	log::info("velocity1: " + std::to_string(t_xy.color.velocity_get()));
+				// 	if (t_xy.color.is_off())
+				// 		log::info("off1");
+				// }
+			}
+		}
+	}
+
 	void launchpad::rgb_set(const uint8 x, const uint8 y, const uint8 r, const uint8 g, const uint8 b)
 	{
 		if (LED_w < x || LED_h < y)
@@ -340,6 +430,11 @@ namespace uniq
 	void launchpad::immediate_transmission_global_timer_set(const int ms)
 	{
 		LED_timer->startTimer(ms);
+	}
+
+	auto launchpad::lightshow_get() -> std::shared_ptr<lightshow::lightshow>
+	{
+		return lightshow_;
 	}
 
 	int launchpad::input_callback_add(std::function<void(const std::uint8_t *, int)> &&callback)

@@ -25,6 +25,10 @@ if (NOT TARGET UNIQ_Library_launchpad)  #launchpad 모듈이 없다면
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../launchpad)
 endif()
 
+if (NOT TARGET UNIQ_Library_lightshow)  #lightshow 모듈이 없다면
+	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../lightshow)
+endif()
+
 if (NOT TARGET UNIQ_Library_uniq)  #uniq 모듈이 없다면
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../uniq)
 endif()
@@ -34,6 +38,7 @@ function(link_library target)  #라이브러리 링크 함수
 	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_audio)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_uniq)
 endfunction()
 

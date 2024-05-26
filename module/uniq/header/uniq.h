@@ -6,6 +6,7 @@
 #include "core.h"
 #include "audio.h"
 #include "launchpad.h"
+#include "lightshow.h"
 
 namespace uniq
 {
@@ -28,7 +29,8 @@ namespace uniq
 		press_duration_t press_duration {0};
 		std::shared_ptr<audio_segment> segment;
 		std::shared_ptr<timeline_cue> start_cue;
-		// std::shared_ptr<LED> led; //TODO: LED 클래스 구현 후 추가
+		// std::shared_ptr<lightshow::rgbav_sequence_grid> rgbav_grid;
+		std::shared_ptr<lightshow::lightshow_data> lightshow_data;
 	};
 
 	class timeline : public ID<timeline>//, public hierarchy::hierarchy_feature
@@ -197,7 +199,7 @@ namespace uniq
 		};
 		std::deque<guide_group> guide_group_deque_;
 		cue_point_t guide_cue_{0}; // 현재 가이드 위치
-		cue_point_t guide_cue_step_{std::chrono::milliseconds(500)}; // 가이드 이동 간격
+		cue_point_t guide_cue_step_{std::chrono::milliseconds(5000)}; // 가이드 이동 간격
 		cue_point_t guide_play_cue_{0}; // 가이드 재생 시작 위치
 		// std::chrono::steady_clock::time_point guide_start_play_time_;
 		// std::chrono::steady_clock::time_point guide_pause_time_;

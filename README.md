@@ -7,7 +7,7 @@ UNIQ Library
 ============
 
 [![UNIQ](https://custom-icon-badges.demolab.com/badge/-UNIQ-FF8F00.svg)](https://fragrant-alarm-7d3.notion.site/UNIQ-fad2be60e85742268cabce1f06184ac1)
-[![JUCE](https://custom-icon-badges.demolab.com/badge/JUCE_v7.0.7-F38D48.svg?logo=JUCE%2032x32)](https://juce.com/)
+[![JUCE](https://custom-icon-badges.demolab.com/badge/JUCE_v7.0.12-F38D48.svg?logo=JUCE%2032x32)](https://juce.com/)
 ![C++](https://img.shields.io/badge/-C++20-F34B7D.svg?logo=c%2B%2B&style=flat)
 [![license](https://custom-icon-badges.demolab.com/badge/license-LGPL--3.0--linking--exception-green.svg?logo=law)](https://spdx.org/licenses/LGPL-3.0-linking-exception.html)
 [![REUSE status](https://api.reuse.software/badge/github.com/IreneStella/UNIQ_Library)](https://api.reuse.software/info/github.com/IreneStella/UNIQ_Library)

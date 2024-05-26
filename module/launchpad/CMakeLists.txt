@@ -40,6 +40,7 @@ endif()
 
 function(link_library target)  #라이브러리 링크 함수
 	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow)
 	target_link_libraries(${target} PRIVATE juce::juce_core)
 	target_link_libraries(${target} PRIVATE juce::juce_audio_devices)
 	if (ANDROID)

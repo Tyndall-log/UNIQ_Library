@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core.h"
+#include "lightshow.h"
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 
@@ -29,6 +30,7 @@ namespace uniq
 		std::unique_ptr<midi_callback> input_callback;
 		bool automatic_transmission;
 		bool immediate_transmission;
+		int interval = 4;
 
 		inline static int input_callback_function_map_index = 0;
 		std::map<int, std::function<void(const std::uint8_t*, int)>> input_callback_function_map_;
@@ -40,6 +42,11 @@ namespace uniq
 		std::vector<std::vector<VRGB>> LED_grid_current; //vrgb
 		std::vector<std::vector<VRGB>> LED_grid_target;
 		std::unique_ptr<juce::uint8[]> LED_raw_data;
+
+		// using rgbav_array = std::array<std::array<lightshow::rgbav, 10>, 10>;
+		// rgbav_array rgbav_grid_current;
+		// rgbav_array rgbav_grid_target;
+		std::shared_ptr<lightshow::lightshow> lightshow_;
 		
 		class midi_callback : public juce::MidiInputCallback
 		{
@@ -97,12 +104,15 @@ namespace uniq
 		void hex_send(const juce::String&);
 		void hex_send(const juce::uint8*, std::size_t);
 		void LED_send();
+		void rgbav_grid_calculate() const;
 		void rgb_set(juce::uint8, juce::uint8, juce::uint8, juce::uint8, juce::uint8);
 		void velocity_set(juce::uint8, juce::uint8, juce::uint8);
 		void program_mode_set(bool = true);
 		void automatic_transmission_set(bool = true);
 		void immediate_transmission_set(bool = true);
 		static void immediate_transmission_global_timer_set(int);
+
+		auto lightshow_get() -> std::shared_ptr<lightshow::lightshow>;
 
 		[[nodiscard]]
 		int input_callback_add(std::function<void(const std::uint8_t *, int)>&& callback);

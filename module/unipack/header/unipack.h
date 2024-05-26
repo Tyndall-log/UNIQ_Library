@@ -7,6 +7,7 @@
 #include "audio.h"
 #include "launchpad.h"
 #include "uniq.h"
+#include "lightshow.h"
 
 #include <juce_core/juce_core.h>
 
@@ -20,6 +21,19 @@ namespace uniq::unipack
 			int repeat = 1;
 			uint8_t wormhole = 0;
 			bool using_flag = false; //한번이라도 사용되었는지
+		};
+		struct keyled_info
+		{
+			const std::string order_name;
+			int repeat = 1;
+			lightshow::rgbav_sequence_grid rgbav_grid;
+		};
+		struct keyled_info_compare
+		{
+			bool operator()(const keyled_info &lhs, const keyled_info &rhs) const
+			{
+				return lhs.order_name < rhs.order_name;
+			}
 		};
 		enum class autoplay_command_type
 		{
@@ -35,6 +49,9 @@ namespace uniq::unipack
 			-> std::vector<std::tuple<juce::String, int>>::iterator;
 		static auto keysound_part(juce::ZipFile &zip, std::vector<std::tuple<juce::String, int>> &zip_list, const juce::String &root_path,
 			std::vector<keysound_info> keysound_list[8][8][8])
+			-> bool;
+		static auto keyled_part(juce::ZipFile &zip, std::vector<std::tuple<juce::String, int>> &zip_list, const juce::String &root_path,
+			std::vector<keyled_info> keyled_list[8][8][8])
 			-> bool;
 	public:
 

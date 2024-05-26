@@ -25,7 +25,7 @@ endif()
 # ---------- JUCE 라이브러리 다운로드 및 빌드 ----------
 if (NOT DEFINED JUCE_VERSION)
 	# 필요한 변수 설정
-	set(JUCE_VERSION 7.0.9)  # JUCE 버전 설정
+	set(JUCE_VERSION 7.0.12)  # JUCE 버전 설정
 	set(JUCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/module/juce")  # JUCE 디렉토리 설정
 	set(JUCE_VERSION_FILE "${JUCE_DIR}/.version")  # JUCE 버전 정보를 위한 파일 경로 설정
 	set(JUCE_LOCK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/module")  # 파일 잠금을 위한 디렉토리 경로 설정

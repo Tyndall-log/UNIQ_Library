@@ -331,6 +331,7 @@ namespace uniq
 	{
 		uniq_->guide_cue_ += uniq_->guide_timer_interval_;
 		uniq_->guide_update(true);
+		// log::info("guide_timer");
 	}
 
 	void uniq::guide_update(bool play_audio_flag)
@@ -429,8 +430,18 @@ namespace uniq
 				if (!guide_group.is_played && play_audio_flag)
 				{
 					//임시
+					const auto x = guide_group.group->button_x.get();
+					const auto y = guide_group.group->button_y.get();
 					audio_play(timeline_list_[0], guide_group.group);
-					timeline_list_[0]->last_play_group_set(guide_group.group->button_x.get(), guide_group.group->button_y.get(), guide_group.group);
+					if (launchpad_)
+					{
+						auto lightshow = launchpad_->lightshow_get();
+						if (lightshow)
+						{
+							lightshow->lightshow_data_set(guide_group.group->lightshow_data, x, y);
+						}
+					}
+					timeline_list_[0]->last_play_group_set(x, y, guide_group.group);
 					//페이지 이동
 					if (guide_target_page != current_page_)
 					{
@@ -684,6 +695,7 @@ namespace uniq
 	uniq::~uniq()
 	{
 		launchpad_disconnect_all();
+		guide_timer_.stopTimer();
 	}
 
 	void uniq::title_set(const string &title)
@@ -1042,6 +1054,14 @@ namespace uniq
 		}
 		const auto& target_timeline = timeline_list_[target_timeline_index];
 		audio_play(target_timeline, target_group);
+		if (launchpad_)
+		{
+			auto lightshow = launchpad_->lightshow_get();
+			if (lightshow)
+			{
+				lightshow->lightshow_data_set(target_group->lightshow_data, x, y);
+			}
+		}
 		target_timeline->last_play_group_set(x, y, target_group);
 	}
 
