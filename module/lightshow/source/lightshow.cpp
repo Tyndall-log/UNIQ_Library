@@ -169,7 +169,8 @@ namespace uniq::lightshow
 		return {{*prev(it), it == grid_xy.end()}};
 	}
 
-	auto rgbav_sequence_grid::rgbav_sequence_get(const std::uint8_t x, const std::uint8_t y) const -> std::optional<rgbav_sequence>
+	auto rgbav_sequence_grid::rgbav_sequence_get(const std::uint8_t x, const std::uint8_t y) const -> optional<
+		reference_wrapper<const rgbav_sequence>>
 	{
 		if (width <= x || height <= y) return std::nullopt;
 		return grid[x][y];
@@ -198,7 +199,7 @@ namespace uniq::lightshow
 			{
 				const auto& rgbav_sequence = rsg.rgbav_sequence_get(i, j);
 				if (!rgbav_sequence.has_value()) continue;
-				const auto& sequence = rgbav_sequence.value();
+				const auto& sequence = rgbav_sequence.value().get();
 				if (sequence.empty()) continue;
 				const auto&[time, color] = *sequence.rbegin();
 				duration_ = max<sequence_time_t>(duration_, time);
@@ -210,6 +211,7 @@ namespace uniq::lightshow
 	                                             uint8_t height) const -> rgbav_sequence_grid
 	{
 		rgbav_sequence_grid grid(width, height);
+		// auto t = log::time("lightshow_data::rgbav_sequence_grid_get");
 		const auto& rsg = rgbav_sequence_grid_;
 		const uint8_t i_start = max<uint8_t>(0, x - x_);
 		const uint8_t i_end = min<uint8_t>(rsg.width_get(), x + width - x_);
@@ -229,10 +231,12 @@ namespace uniq::lightshow
 		{
 			for (uint8_t j = j_start; j < j_end; j++)
 			{
+				// auto tt = log::time("for" + to_string(i) + to_string(j));
 				const auto& sequence_o = rsg.rgbav_sequence_get(i, j);
 				if (!sequence_o.has_value()) continue;
-				const auto& sequence = sequence_o.value();
+				const auto& sequence = sequence_o.value().get();
 				if (sequence.empty()) continue;
+				// tt->stamp("sequence");
 				auto it = sequence.upper_bound(_time);
 				if (it == sequence.begin())
 				{
@@ -297,21 +301,19 @@ namespace uniq::lightshow
 		const auto start_time = chrono::duration_cast<sequence_time_t>(now - standard_time_) + delay;
 		unique_lock lock(lock_);
 		auto& pld_xy = pad_lightshow_data_[x][y];
-		if (pld_xy.lightshow_data)
+		if (pld_xy.lightshow_data) // 이미 재생중인 경우
 		{
+			// 이전 값 off로 클리어
 			auto pad_id = x * width_ + y;
-			auto& rgt = internal.rgbav_grid_target;
-			auto& rf = internal.reset_flag;
+			// auto& rgt = internal.rgbav_grid_target;
 			// auto& rgt = pad_last_color_;
 			for (uint8_t i = 0; i < width_; i++)
 			{
 				for (uint8_t j = 0; j < height_; j++)
 				{
-					if (rgt[i][j].id == pad_id)
+					if (pad_lightshow_last_color_[i][j].id == pad_id)
 					{
-						// rf[i][j] = true;
-						pad_last_color_[i][j].color.off_set();
-						// log::info("i: " + to_string(i) + ", j: " + to_string(j) + ", id: " + to_string(pad_id));
+						pad_lightshow_last_color_[i][j].color.off_set();
 					}
 				}
 			}
@@ -332,6 +334,30 @@ namespace uniq::lightshow
 		}
 
 		unique_lock lock(lock_);
+
+		// // pad_lightshow_data_ 복사
+		// lightshow_pair pad_lightshow_data[10][10];
+		// // copy_n(&pad_lightshow_data_[0][0], 10 * 10, &pad_lightshow_data[0][0]);
+		// for (uint8_t i = 0; i < width_; i++)
+		// {
+		// 	for (uint8_t j = 0; j < height_; j++)
+		// 	{
+		// 		const auto&[lightshow_data, start_time] = pad_lightshow_data_[i][j];
+		// 		if (!lightshow_data) continue;
+		// 		// 시간 범위 검사
+		// 		if (time < start_time) continue;
+		// 		auto end_time = start_time + lightshow_data->start_time_get() + lightshow_data->duration_get() * lightshow_data->repeat_get();
+		// 		if (end_time < time)
+		// 		{
+		// 			pad_lightshow_data_[i][j] = {nullptr, 0s}; // 삭제
+		// 			continue;
+		// 		}
+		// 		pad_lightshow_data[i][j] = pad_lightshow_data_[i][j];
+		// 	}
+		// }
+		// lock.unlock();
+
+		// auto t = log::time("rgbav_array_get");
 		for (uint8_t i = 0; i < width_; i++)
 		{
 			for (uint8_t j = 0; j < height_; j++)
@@ -340,8 +366,8 @@ namespace uniq::lightshow
 				if (!lightshow_data) continue;
 				// 시간 범위 검사
 				if (time < start_time) continue;
-				const auto grid = lightshow_data->rgbav_sequence_grid_get(time - start_time, 0, 0, width_, height_);
 				// pad_rgbav_id_sequence_에 추가
+				const auto grid = lightshow_data->rgbav_sequence_grid_get(time - start_time, 0, 0, width_, height_);
 				const auto pad_id = i * width_ + j;
 				for (uint8_t x = 0; x < width_; x++)
 				{
@@ -349,7 +375,7 @@ namespace uniq::lightshow
 					{
 						const auto& rso = grid.rgbav_sequence_get(x, y);
 						if (!rso.has_value()) continue;
-						const auto& rs = rso.value();
+						const auto& rs = rso.value().get();
 						if (rs.empty()) continue;
 						const auto&[_time, color] = *rs.rbegin();
 						pad_rgbav_id_sequence_[x][y].emplace(rgbav_id_time{color, pad_id, start_time + _time});
@@ -364,6 +390,7 @@ namespace uniq::lightshow
 		}
 
 		// pad_last_color_ 채우기
+		// lock.lock();
 		for (uint8_t i = 0; i < width_; i++)
 		{
 			for (uint8_t j = 0; j < height_; j++)
@@ -372,13 +399,14 @@ namespace uniq::lightshow
 				if (rgbav_id_sequence.empty()) continue;
 				for (const auto& rgbav_id_time : rgbav_id_sequence | views::reverse)
 				{
-					if (pad_last_color_[i][j].id == rgbav_id_time.id)
+					if (pad_lightshow_last_color_[i][j].time > rgbav_id_time.time) continue;
+					if (pad_lightshow_last_color_[i][j].id == rgbav_id_time.id)
 					{
-						pad_last_color_[i][j] = {rgbav_id_time.color, rgbav_id_time.id};
+						pad_lightshow_last_color_[i][j] = rgbav_id_time;
 						break;
 					}
 					if (rgbav_id_time.color.is_off()) continue;
-					pad_last_color_[i][j] = {rgbav_id_time.color, rgbav_id_time.id};
+					pad_lightshow_last_color_[i][j] = rgbav_id_time;
 					break;
 				}
 			}
@@ -401,7 +429,36 @@ namespace uniq::lightshow
 		// }
 		// log::info(t);
 
+		// pad_last_color_에 색상 추가
+		for (uint8_t i = 0; i < width_; i++)
+		{
+			for (uint8_t j = 0; j < height_; j++)
+			{
+				if (!pad_pressed_color_[i][j].color.is_off())
+				{
+					pad_last_color_[i][j] = {pad_pressed_color_[i][j].color, -2};
+					continue;
+				}
+				if (!pad_guide_color_[i][j].color.is_off())
+				{
+					pad_last_color_[i][j] = {pad_guide_color_[i][j].color, -1};
+					continue;
+				}
+				pad_last_color_[i][j] = {pad_lightshow_last_color_[i][j].color, pad_lightshow_last_color_[i][j].id};
+			}
+		}
+
 		return pad_last_color_;
+	}
+
+	auto lightshow::guide_color_set(uint8_t x, uint8_t y, rgbav color, const int id) -> void
+	{
+		pad_guide_color_[x][y] = {color, id};
+	}
+
+	auto lightshow::pressed_color_set(uint8_t x, uint8_t y, rgbav color) -> void
+	{
+		pad_pressed_color_[x][y] = {color, -2};
 	}
 
 	// auto lightshow_sequence::rgbav_sequence_grid_get(sequence_time_t time, uint8_t x, uint8_t y, const uint8_t width,

@@ -564,6 +564,17 @@ namespace uniq::unipack
 					if constexpr (type == act::on) command = "on";
 					else if constexpr (type == act::off) command = "off";
 					else if constexpr (type == act::touch) command = "touch";
+
+					if (current_chain_num == 0)
+					{
+						// log::warn("chain 명령어가 먼저 나와야 합니다: \"" + line.toStdString() + "\"");
+						current_chain_num = 1;
+
+						auto page = uniq->timeline_page_find_floor(0us);
+						page->next_page_set(page, {9, 8});
+						timeline_page_list.emplace_back(page);
+					}
+
 					if (tokens.size() < 3)
 					{
 						log::warn(command + " 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");;
@@ -664,25 +675,23 @@ namespace uniq::unipack
 							for (auto y = 1; y <= 8; y++)
 							{
 								auto tp = last_page->next_page_get({9, y});
-								if (9 - chain_num == y)
+								if (9 - chain_num != y)
+								{
+									if (tp) page->next_page_set(tp, {9, y});
+								}
+								else
 								{
 									if (tp)
 									{
-										auto it = ranges::find_if(timeline_page_list,
-										                          [&](const auto& e) { return e == tp; });
-										if (it == timeline_page_list.end())
+										auto it = timeline_page_list.rbegin();
+										while (it != timeline_page_list.rend())
 										{
-											log::error("autoPlay를 불러오는데 논리 오류가 있습니다.");
+											if (tp != (*it)->next_page_get({9, y})) break;
+											(*it)->next_page_set(page, {9, y});
+											if (tp == *it) break;
+											++it;
 										}
-										else
-										{
-											while (it != timeline_page_list.end())
-											{
-												(*it)->next_page_set(page, {9, y});
-												++it;
-											}
-											page->next_page_set(tp, {9, y});
-										}
+										page->next_page_set(tp, {9, y});
 									}
 									else
 									{
@@ -693,13 +702,25 @@ namespace uniq::unipack
 										page->next_page_set(page, {9, y});
 									}
 								}
-								else
-								{
-									if (tp) page->next_page_set(tp, {9, y});
-								}
 							}
 							timeline_page_list.emplace_back(page);
 						}
+
+						// //페이지 연결 상태 표시
+						// for (auto& page : timeline_page_list)
+						// {
+						// 	String s = String::formatted("%05d:", page->ID_get());
+						// 	for (auto y = 8; y >= 1; y--)
+						// 	{
+						// 		auto tp = page->next_page_get({9, y});
+						// 		if (tp)
+						// 		{
+						// 			//id를 4자리에 맞추어 출력
+						// 			s += String::formatted(" %05d", tp->ID_get());
+						// 		}
+						// 	}
+						// 	log::info(s.toStdString());
+						// }
 					}
 					else if (command == "on" || command == "o")
 					{

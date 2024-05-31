@@ -24,7 +24,38 @@ namespace uniq
 #endif
 	}
 
-	void log::print(std::string_view str)
+	log::time::time(const string_view name) : name(name)
+	{
+	}
+
+	log::time::~time()
+	{
+		lock_guard lock(sl);
+		string s = "[Time]: ";
+		s += name;
+		s += " ";
+		s += to_string(chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now() - start_time).count());
+		s += "us";
+		if (!time_list.empty())
+		{
+			for (auto &i : time_list)
+			{
+				s += "\n";
+				s += i.first;
+				s += " ";
+				s += to_string(i.second.count());
+				s += "us";
+			}
+		}
+		println_without_lock(s);
+	}
+
+	void log::time::stamp(const std::string& name)
+	{
+		time_list.emplace_back(name, chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now() - start_time));
+	}
+
+	void log::print(string_view str)
 	{
 		lock_guard lock(sl);
 		message += str;
@@ -35,7 +66,7 @@ namespace uniq
 #endif
 	}
 
-	void log::println(const std::string_view str)
+	void log::println(const string_view str)
 	{
 		lock_guard lock(sl);
 		string s;
@@ -48,7 +79,7 @@ namespace uniq
 #endif
 	}
 
-	void log::info(const std::string_view str)
+	void log::info(const string_view str)
 	{
 		lock_guard lock(sl);
 		string s = "[Info]: ";
@@ -56,7 +87,7 @@ namespace uniq
 		println_without_lock(s);
 	}
 
-	void log::warn(const std::string_view str)
+	void log::warn(const string_view str)
 	{
 		lock_guard lock(sl);
 		string s = "[Warn]: ";
@@ -64,7 +95,7 @@ namespace uniq
 		println_without_lock(s);
 	}
 
-	void log::error(const std::string_view str)
+	void log::error(const string_view str)
 	{
 		lock_guard lock(sl);
 		string s = "[Error]: ";
@@ -72,7 +103,12 @@ namespace uniq
 		println_without_lock(s);
 	}
 
-	std::string & log::get()
+	std::unique_ptr<struct log::time> log::time(std::string_view name)
+	{
+		return make_unique<struct time>(name);
+	}
+
+	string & log::get()
 	{
 		message_temp = message;
 		message.clear();

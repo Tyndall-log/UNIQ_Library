@@ -184,13 +184,10 @@ namespace uniq
 		std::chrono::milliseconds guide_timer_interval_{10};
 		bool guide_start_{false};
 		bool guide_play_{false};
+		spin_lock guide_update_lock_;
 		const cue_point_t guide_simul_ = std::chrono::milliseconds(20);
-		struct guide_color
-		{
-			uint8_t r {0x3F};
-			uint8_t g {0x00};
-			uint8_t b {0x7F};
-		} guide_color_;
+		lightshow::rgbav guide_color_ = {0x3F, 0x00, 0x7F, 0xFF};
+		lightshow::rgbav pressed_color_ = {0x00, 0x7F, 0x00, 0xFF};
 		struct guide_group
 		{
 			std::shared_ptr<timeline_group> group;

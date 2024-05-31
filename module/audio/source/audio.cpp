@@ -3,6 +3,8 @@
 
 #include "audio.h"
 
+#include <utility>
+
 
 using namespace std;
 using namespace juce;
@@ -97,29 +99,29 @@ namespace uniq::internal
 
 #pragma region audio_custom_source
 
-	audio_custom_source::play_data::next_s::~next_s()
-	{
-		if (buffer_)
-		{
-			for (int i = 0; i < channel_num_; ++i)
-			{
-				delete[] (buffer_[i] - padding);
-			}
-			delete[] buffer_;
-		}
-	}
+	// audio_custom_source::play_data::next_s::~next_s()
+	// {
+	// 	if (buffer_)
+	// 	{
+	// 		for (int i = 0; i < channel_num_; ++i)
+	// 		{
+	// 			delete[] (buffer_[i] - padding);
+	// 		}
+	// 		delete[] buffer_;
+	// 	}
+	// }
 
-	audio_custom_source::play_data::~play_data()
-	{
-		if (buffer_)
-		{
-			for (int i = 0; i < channel_num_; ++i)
-			{
-				delete[] (buffer_[i] - padding);
-			}
-			delete[] buffer_;
-		}
-	}
+	// audio_custom_source::play_data::~play_data()
+	// {
+	// 	if (buffer_)
+	// 	{
+	// 		for (int i = 0; i < channel_num_; ++i)
+	// 		{
+	// 			delete[] (buffer_[i] - padding);
+	// 		}
+	// 		delete[] buffer_;
+	// 	}
+	// }
 
 	void audio_custom_source::sync_refresh()
 	{
@@ -248,28 +250,25 @@ namespace uniq::internal
 	// 	}
 	// }
 
-	bool audio_custom_source::chennal_mapping_copy_with_padding(mapping_data &md)
+	audio_custom_source::audio_low_buffer::audio_low_buffer(std::shared_ptr<audio_data> data,
+		sample_position_t sample_start, sample_position_t sample_end, uint8_t channel_num) : data_(std::move(data)),
+		sample_start_(sample_start), sample_end_(sample_end), channel_num_(channel_num)
 	{
-		const auto& data = md.in.data;
-		const auto& sample_start = md.in.sample_start;
-		const auto& sample_end = md.in.sample_end;
-		const auto& channel_num_ = md.in.channel_num;
-
-		shared_lock data_buffer_lock(data->mutex_);
-		const auto& data_buffer = data->buffer_;
+		shared_lock data_buffer_lock(data_->mutex_);
+		const auto& data_buffer = data_->buffer_;
 		const auto& data_buffer_channel_num = data_buffer.getNumChannels();
 		const auto& data_buffer_sample_num = data_buffer.getNumSamples();
 
 		//오디오 데이터 범위 보정
-		if (data_buffer_sample_num <= sample_end)
+		if (data_buffer_sample_num <= sample_end_)
 		{
-			md.in.sample_end = data_buffer_sample_num;
+			sample_end_ = data_buffer_sample_num;
 		}
 
-		if (sample_end <= sample_start)
+		if (sample_end_ <= sample_start_)
 		{
 			log::error("sample_end <= sample_start");
-			return false;
+			return;
 		}
 
 		//padding값 자동 채움
@@ -277,18 +276,18 @@ namespace uniq::internal
 		{
 			log::error("2 채널 이하만 지원합니다.(채널 수: " + to_string(data_buffer_sample_num) + ")");
 			//TODO: 2.1채널 이상의 오디오 지원
-			return false;
+			return;
 		}
 		auto buffer = new float*[channel_num_];
 		for (int i = 0; i < channel_num_; ++i)
 		{
-			buffer[i] = new float[sample_end - sample_start + padding * 2];
+			buffer[i] = new float[sample_end_ - sample_start_ + padding * 2];
 		}
 
 		//i는 data_buffer의 인덱스
-		const auto& i_start = sample_start < padding ? 0 : sample_start - padding;
-		const auto& i_end = sample_end + padding < data_buffer_sample_num ? sample_end + padding : data_buffer_sample_num;
-		const auto& buffer_offset = padding - sample_start;
+		const auto& i_start = sample_start_ < padding ? 0 : sample_start_ - padding;
+		const auto& i_end = sample_end_ + padding < data_buffer_sample_num ? sample_end_ + padding : data_buffer_sample_num;
+		const auto& buffer_offset = padding - sample_start_;
 		if (channel_num_ == data_buffer_channel_num)
 		{
 			//채널 수가 같으면 그대로 복사
@@ -304,7 +303,7 @@ namespace uniq::internal
 				{
 					buffer_c[buffer_offset + i] = data_buffer_channel_data[i];
 				}
-				for (auto i = i_end; i < sample_end + padding; ++i)
+				for (auto i = i_end; i < sample_end_ + padding; ++i)
 				{
 					buffer_c[buffer_offset + i] = 0.f;
 				}
@@ -327,7 +326,7 @@ namespace uniq::internal
 				{
 					buffer_0[buffer_offset + i] = (l_p[i] + r_p[i]) * 0.5f;
 				}
-				for (auto i = i_end; i < sample_end + padding; ++i)
+				for (auto i = i_end; i < sample_end_ + padding; ++i)
 				{
 					buffer_0[buffer_offset + i] = 0.f;
 				}
@@ -349,7 +348,7 @@ namespace uniq::internal
 					buffer_0[buffer_offset + i] = monoSample;
 					buffer_1[buffer_offset + i] = monoSample;
 				}
-				for (auto i = i_end; i < sample_end + padding; ++i)
+				for (auto i = i_end; i < sample_end_ + padding; ++i)
 				{
 					buffer_0[buffer_offset + i] = 0.f;
 					buffer_1[buffer_offset + i] = 0.f;
@@ -358,7 +357,7 @@ namespace uniq::internal
 			else
 			{
 				log::error("채널 매핑 실패(" + to_string(data_buffer_channel_num) + " -> " + to_string(channel_num_) + ")");
-				return false;
+				return;
 			}
 		}
 
@@ -367,13 +366,159 @@ namespace uniq::internal
 			buffer[i] += padding;
 		}
 
-		md.out.buffer = buffer;
-
-		// { //debugging
-		// 	cout << "i_start: "<< i_start << ", i_end: " << i_end << endl;
-		// }
-		return true;
+		buffer_ = buffer;
 	}
+
+	audio_custom_source::audio_low_buffer::~audio_low_buffer()
+	{
+		if (buffer_)
+		{
+			for (int i = 0; i < channel_num_; ++i)
+			{
+				delete[] (buffer_[i] - padding);
+			}
+			delete[] buffer_;
+		}
+	}
+
+	// audio_custom_source::mapping_data::~mapping_data()
+	// {
+	// 	if (out.buffer)
+	// 	{
+	// 		for (int i = 0; i < in.channel_num; ++i)
+	// 		{
+	// 			delete[] (out.buffer[i] - padding);
+	// 		}
+	// 		delete[] out.buffer;
+	// 	}
+	// }
+
+	// bool audio_custom_source::chennal_mapping_copy_with_padding(mapping_data &md)
+	// {
+	// 	const auto& data = md.in.data;
+	// 	const auto& sample_start = md.in.sample_start;
+	// 	const auto& sample_end = md.in.sample_end;
+	// 	const auto& channel_num_ = md.in.channel_num;
+	//
+	// 	shared_lock data_buffer_lock(data->mutex_);
+	// 	const auto& data_buffer = data->buffer_;
+	// 	const auto& data_buffer_channel_num = data_buffer.getNumChannels();
+	// 	const auto& data_buffer_sample_num = data_buffer.getNumSamples();
+	//
+	// 	//오디오 데이터 범위 보정
+	// 	if (data_buffer_sample_num <= sample_end)
+	// 	{
+	// 		md.in.sample_end = data_buffer_sample_num;
+	// 	}
+	//
+	// 	if (sample_end <= sample_start)
+	// 	{
+	// 		log::error("sample_end <= sample_start");
+	// 		return false;
+	// 	}
+	//
+	// 	//padding값 자동 채움
+	// 	if (2 < data_buffer_channel_num)
+	// 	{
+	// 		log::error("2 채널 이하만 지원합니다.(채널 수: " + to_string(data_buffer_sample_num) + ")");
+	// 		//TODO: 2.1채널 이상의 오디오 지원
+	// 		return false;
+	// 	}
+	// 	auto buffer = new float*[channel_num_];
+	// 	for (int i = 0; i < channel_num_; ++i)
+	// 	{
+	// 		buffer[i] = new float[sample_end - sample_start + padding * 2];
+	// 	}
+	//
+	// 	//i는 data_buffer의 인덱스
+	// 	const auto& i_start = sample_start < padding ? 0 : sample_start - padding;
+	// 	const auto& i_end = sample_end + padding < data_buffer_sample_num ? sample_end + padding : data_buffer_sample_num;
+	// 	const auto& buffer_offset = padding - sample_start;
+	// 	if (channel_num_ == data_buffer_channel_num)
+	// 	{
+	// 		//채널 수가 같으면 그대로 복사
+	// 		for (int c_i = 0; c_i < channel_num_; ++c_i)
+	// 		{
+	// 			const auto& data_buffer_channel_data = data_buffer.getReadPointer(c_i);
+	// 			const auto& buffer_c = buffer[c_i];
+	// 			for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+	// 			{
+	// 				buffer_c[i] = 0.f;
+	// 			}
+	// 			for (auto i = i_start; i < i_end; ++i)
+	// 			{
+	// 				buffer_c[buffer_offset + i] = data_buffer_channel_data[i];
+	// 			}
+	// 			for (auto i = i_end; i < sample_end + padding; ++i)
+	// 			{
+	// 				buffer_c[buffer_offset + i] = 0.f;
+	// 			}
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		//채널 수 맞추기(현재 1, 2 채널만 지원)
+	// 		if (channel_num_ == 1 && data_buffer_channel_num == 2)
+	// 		{
+	// 			//1채널로 매핑(평균)
+	// 			const auto& l_p = data_buffer.getReadPointer(0);
+	// 			const auto& r_p = data_buffer.getReadPointer(1);
+	// 			const auto& buffer_0 = buffer[0];
+	// 			for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+	// 			{
+	// 				buffer_0[i] = 0.f;
+	// 			}
+	// 			for (auto i = i_start; i < i_end; ++i)
+	// 			{
+	// 				buffer_0[buffer_offset + i] = (l_p[i] + r_p[i]) * 0.5f;
+	// 			}
+	// 			for (auto i = i_end; i < sample_end + padding; ++i)
+	// 			{
+	// 				buffer_0[buffer_offset + i] = 0.f;
+	// 			}
+	// 		}
+	// 		else if (channel_num_ == 2 && data_buffer_channel_num == 1)
+	// 		{
+	// 			//2채널로 매핑(복사)
+	// 			const auto& mono_p = data_buffer.getReadPointer(0); // 모노 채널 데이터 포인터
+	// 			const auto& buffer_0 = buffer[0];
+	// 			const auto& buffer_1 = buffer[1];
+	// 			for (auto i = 0ull; i < buffer_offset + i_start; ++i)
+	// 			{
+	// 				buffer_0[i] = 0.f;
+	// 				buffer_1[i] = 0.f;
+	// 			}
+	// 			for (auto i = i_start; i < i_end; ++i)
+	// 			{
+	// 				const float& monoSample = mono_p[i];
+	// 				buffer_0[buffer_offset + i] = monoSample;
+	// 				buffer_1[buffer_offset + i] = monoSample;
+	// 			}
+	// 			for (auto i = i_end; i < sample_end + padding; ++i)
+	// 			{
+	// 				buffer_0[buffer_offset + i] = 0.f;
+	// 				buffer_1[buffer_offset + i] = 0.f;
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			log::error("채널 매핑 실패(" + to_string(data_buffer_channel_num) + " -> " + to_string(channel_num_) + ")");
+	// 			return false;
+	// 		}
+	// 	}
+	//
+	// 	for (int i = 0; i < channel_num_; ++i)
+	// 	{
+	// 		buffer[i] += padding;
+	// 	}
+	//
+	// 	md.out.buffer = buffer;
+	//
+	// 	// { //debugging
+	// 	// 	cout << "i_start: "<< i_start << ", i_end: " << i_end << endl;
+	// 	// }
+	// 	return true;
+	// }
 
 	audio_custom_source::~audio_custom_source()
 	{
@@ -535,7 +680,7 @@ namespace uniq::internal
 				while(true)
 				{
 					if (input_sample_pos < input_sample_end_pos) break;
-					if (p->next_que.empty())
+					// if (p->next_que.empty())
 					{
 						stop_flag = true;
 						playing_data_set_it = playing_data_set_.erase(prev(playing_data_set_it));
@@ -563,8 +708,7 @@ namespace uniq::internal
 					//다음 오디오 데이터가 준비되어 있지 않으면
 					//next 데이터를 p 데이터로 이동
 					// p->id_ = next.id_;
-					p->buffer_ = next.buffer_;
-					next.buffer_ = nullptr; //포인트 이동
+					p->buffer_ = move(next.buffer_);
 					p->sample_rate_ = next.sample_rate_;
 					p->sample_num_ = next.sample_num_;
 					p->channel_num_ = next.channel_num_;
@@ -574,6 +718,7 @@ namespace uniq::internal
 					channel_num = min(p->channel_num_, output_channel_num);
 					input_sample_end_pos = static_cast<double>(p->sample_num_);
 					p->next_que.pop_front();
+					break;
 				}
 
 				if (stop_flag) break;
@@ -585,7 +730,7 @@ namespace uniq::internal
 					continue;
 				}
 
-				const float* const* const& input_buffer = p->buffer_;
+				const float* const* const& input_buffer = p->buffer_->buffer_;
 				const auto tb_p = output_pos - audio_sample_start_pos;
 
 				//TODO: fade_in, fade_out 처리
@@ -662,21 +807,21 @@ namespace uniq::internal
 		const uint8_t channel_num_ = this->channel_num_; //atomic_uint8_t를 값 복사
 		sample_position_t sample_start = param.sample.start;
 		sample_position_t sample_end = param.sample.end;
-		mapping_data md {
-			.in{data, sample_start, sample_end, channel_num_},
-			.out{nullptr}
-		};
-		if(const auto& result = chennal_mapping_copy_with_padding(md); !result)
+		// mapping_data md {
+		// 	.in{data, sample_start, sample_end, channel_num_},
+		// 	.out{nullptr}
+		// };
+		auto buffer = make_unique<audio_low_buffer>(data, sample_start, sample_end, channel_num_);
+		if(!buffer->buffer_)
 		{
 			log::error("채널 매핑 실패");
 			return false;
 		}
-		float** buffer = md.out.buffer;
 
 		const auto sample_length = sample_end - sample_start;
 		const auto pd = make_shared<play_data>();
 		pd->id_ = param.id;
-		pd->buffer_ = buffer;
+		pd->buffer_ = move(buffer);
 		pd->sample_rate_ = data->sample_rate_;
 		pd->sample_num_ = sample_length;
 		pd->channel_num_ = channel_num_;
@@ -684,40 +829,40 @@ namespace uniq::internal
 		pd->fade_in_ = param.fade.in;
 		pd->fade_out_list.push_back(param.fade.out);
 
-		//next_que 추가
-		// ReSharper disable once CppUseStructuredBinding
-		for(const auto pfo: param.fade.out_list)
-		{
-			md.in.data = pfo.data;
-			md.in.sample_start = pfo.sample.start;
-			md.in.sample_end = pfo.sample.end;
-			if(!chennal_mapping_copy_with_padding(md))
-			{
-				log::error("채널 매핑 실패");
-				return false;
-			}
-			pd->next_que.push_back({
-				.id_ = pfo.id,
-				.buffer_ = md.out.buffer,
-				.sample_rate_ = pfo.data->sample_rate_,
-				.sample_num_ = md.in.sample_end - md.in.sample_start,
-				.channel_num_ = channel_num_,
-				.time_hint_ = pfo.sync.time_hint
-			});
-		}
 		ranges::sort(pd->next_que, [](const auto& a, const auto& b) { return a.time_hint_ < b.time_hint_; });
 
 		unique_lock lock(sl_);
 
-		shared_ptr<play_data> sync_target_play_data = nullptr;
+		shared_ptr<play_data> sync_target_play_data = nullptr; //동기화 대상(앞에 있는, 재생중인) 오디오
 		bool stop = false;
 		sample_position_t pd_asp = 0;
 		double pd_aspd = 0;
 		map<id_t, shared_ptr<play_data>> sync_data_map;
+		// log::info("next_sample_position_: " + to_string(next_sample_position_));
 		for (auto& spd : sync_playing_data_set_)
 		{
 			sync_data_map.try_emplace(spd->id_, spd); //동일 id가 있으면 무시(즉, 가장 빨리 끝나는 오디오만 남김)
+			// log::info("spd->id: " + to_string(spd->id_));
+			// log::info("spd->audio_start_position_: " + to_string(spd->audio_start_position_));
+			// log::info("spd->audio_end_position_: " + to_string(spd->audio_end_position_));
+			// log::info("spd->audio_end_position_ - 2400*4: " + to_string(spd->audio_end_position_ - 2400*4));
+			// log::info("spd->audio_end_position_ + 2400: " + to_string(spd->audio_end_position_ + 2400));
+			// log::info("spd->sync_start_position_: " + to_string(spd->sync_start_position_));
+			// log::info("spd->sync_end_position_: " + to_string(spd->sync_end_position_));
+			// log::info("spd->sync_end_position_ - spd->sync_start_position_: " + to_string(spd->sync_end_position_ - spd->sync_start_position_));
 		}
+		// for (auto& swd : sync_waiting_data_set_)
+		// {
+		// 	log::info("swd->id: " + to_string(swd->id_));
+		// 	log::info("swd->audio_start_position_: " + to_string(swd->audio_start_position_));
+		// 	log::info("swd->audio_end_position_: " + to_string(swd->audio_end_position_));
+		// 	log::info("swd->audio_end_position_ - 2400*4: " + to_string(swd->audio_end_position_ - 2400*4));
+		// 	log::info("swd->audio_end_position_ + 2400: " + to_string(swd->audio_end_position_ + 2400));
+		// 	log::info("swd->sync_start_position_: " + to_string(swd->sync_start_position_));
+		// 	log::info("swd->sync_end_position_: " + to_string(swd->sync_end_position_));
+		// 	log::info("swd->sync_end_position_ - spd->sync_start_position_: " + to_string(swd->sync_end_position_ - swd->sync_start_position_));
+		// }
+		// log::info("param.sync.target.list.size(): " + to_string(param.sync.target.list.size()));
 		for (const id_t& st : param.sync.target.list) // | views::reverse
 		{
 			auto it = sync_data_map.find(st);
@@ -740,6 +885,24 @@ namespace uniq::internal
 				break;
 			}
 			if (stop) break;
+			//동기화 정확도 계산
+			{
+				const auto time_hint_diff = pd->time_hint_ - _p->time_hint_;
+				const auto time_hint_based_comp_pos = _p->audio_start_position_delay_
+					+ static_cast<double>(time_hint_diff.count()) * sample_rate_ / speed_target_ * 1e-6;
+				const auto pd_based_comp_pos = pd_aspd
+					+ static_cast<double>(pd_asp - _p->audio_start_position_);
+				if (continuity_tolerance.count() < abs(time_hint_based_comp_pos - pd_based_comp_pos) * 1e+6 / sample_rate_ * speed_target_)
+				{
+					//오차가 허용 범위를 넘어선 경우, time_hint 기반으로 동기화(modf 사용)
+					double time_hint_based_comp_pos_i;
+					pd_aspd = modf(time_hint_based_comp_pos, &time_hint_based_comp_pos_i);
+					pd_asp = _p->audio_start_position_ + static_cast<sample_position_t>(time_hint_based_comp_pos_i);
+					//TO?DO: continuity_tolerance보다 작은 오차 보정
+				}
+				auto t = round(static_cast<double>(next_sample_position_ - pd_asp) / sample_rate_ * speed_target_ * 1e+3);
+				// log::info("t: " + to_string(t));
+			}
 			if (sync_target_play_data) continue;
 			sync_target_play_data = _p; //param.sync.target.list 중 가장 첫번째 오디오 선택
 			// pd_asp = sync_target_play_data->audio_start_position_;
@@ -751,12 +914,15 @@ namespace uniq::internal
 		if (sync_target_play_data)
 		{
 			const auto time_hint_diff = pd->time_hint_ - sync_target_play_data->time_hint_;
+			//time_hint_based_comp_pos는 동기화 대상 오디오의 audio_start_position로부터 time_hint_diff만큼의 시간을 더한 위치(단위: 오디오 sample)
 			const auto time_hint_based_comp_pos = sync_target_play_data->audio_start_position_delay_
-				+ static_cast<double>(time_hint_diff.count()) * 1e-6 * sample_rate_ / speed_target_;
+				+ static_cast<double>(time_hint_diff.count()) * sample_rate_ / speed_target_ * 1e-6;
 			const auto pd_based_comp_pos = pd_aspd
 				+ static_cast<double>(pd_asp - sync_target_play_data->audio_start_position_);
 
-			if (continuity_tolerance.count() < abs(time_hint_based_comp_pos - pd_based_comp_pos))
+			// log::info("abs(time_hint_based_comp_pos - pd_based_comp_pos) * 1e+6 / sample_rate_ * speed_target_): "
+			// 	+ to_string(abs(time_hint_based_comp_pos - pd_based_comp_pos) * 1e+6 / sample_rate_ * speed_target_));
+			// if (continuity_tolerance.count() < abs(time_hint_based_comp_pos - pd_based_comp_pos) * 1e+6 / sample_rate_ * speed_target_)
 			{
 				//오차가 허용 범위를 넘어선 경우, time_hint 기반으로 동기화(modf 사용)
 				double time_hint_based_comp_pos_i;
@@ -771,24 +937,53 @@ namespace uniq::internal
 			pd_aspd = 0;
 		}
 
-		auto fade_out_length = 0.0;
-		if (0us < param.fade.out.end_time_)
-		{
-			fade_out_length = param.fade.out.end_time_.count() * 1e-6 * sample_rate_ / speed_target_;
-		}
+		// auto fade_out_length = 0.0;
+		// if (0us < param.fade.out.end_time_)
+		// {
+		// 	fade_out_length = param.fade.out.end_time_.count() * 1e-6 * sample_rate_ / speed_target_;
+		// }
 		const auto& end_offset = pd_aspd + static_cast<double>(sample_length) / rate;
 		const auto& sync_start_pos_floor = floor(end_offset + param.sync.duration.start.count() * 1e-6 * sample_rate_ / speed_target_);
 		const auto& sync_start_pos_ceil = ceil(end_offset + param.sync.duration.end.count() * 1e-6 * sample_rate_ / speed_target_);
+		// log::info("sync_start_pos_ceil - sync_start_pos_floor: " + to_string(sync_start_pos_ceil - sync_start_pos_floor));
 		pd->audio_start_position_ = pd_asp;
 		pd->audio_start_position_delay_ = pd_aspd;
-		pd->audio_end_position_ = pd_asp + static_cast<sample_position_t>(ceil(end_offset + fade_out_length));
+		pd->audio_end_position_ = pd_asp + static_cast<sample_position_t>(ceil(end_offset)); // + fade_out_length));
 		pd->sync_start_position_ = pd_asp + static_cast<sample_position_t>(sync_start_pos_floor);
 		pd->sync_end_position_ = pd_asp + static_cast<sample_position_t>(sync_start_pos_ceil);
+		// log::info("pd->audio_end_position_ - pd->audio_start_position_: " + to_string(pd->audio_end_position_ - pd->audio_start_position_));
 
 		if (sync_start_pos_floor < 0 && pd_asp < static_cast<sample_position_t>(-sync_start_pos_floor))
 			pd->sync_start_position_ = 0;
 		if (sync_start_pos_ceil < 0 && pd_asp < static_cast<sample_position_t>(-sync_start_pos_ceil))
 			pd->sync_end_position_ = 0;
+
+		//next_que 추가
+		// ReSharper disable once CppUseStructuredBinding
+		for(const auto& pfo: param.fade.out_list)
+		{
+			auto pfo_buffer = make_unique<audio_low_buffer>(data, pfo.sample.start, pfo.sample.end, channel_num_);
+			if(!pfo_buffer->buffer_)
+			{
+				log::error("채널 매핑 실패");
+				return false;
+			}
+			const auto& pfo_sample_start = pfo_buffer->sample_start_;
+			const auto& pfo_sample_end = pfo_buffer->sample_end_;
+			const auto& pfo_audio_start_position = pd->audio_end_position_;
+			// log::info("pfo_sample_end - pfo_sample_start: " + to_string(pfo_sample_end - pfo_sample_start));
+			// const auto& pfo_audio_start_position_delay = pd->audio_end_position_delay_;
+			pd->next_que.push_back({
+				.id_ = pfo.id,
+				.buffer_ = move(pfo_buffer),
+				.sample_rate_ = pfo.data->sample_rate_,
+				.sample_num_ = pfo_sample_end - pfo_sample_start,
+				.channel_num_ = channel_num_,
+				.time_hint_ = pfo.sync.time_hint,
+				.audio_start_position_ = pd->audio_end_position_,
+				.audio_start_position_delay_ = pd->audio_start_position_delay_,
+			});
+		}
 
 		waiting_data_set_.insert(pd);
 		if (pd->sync_start_position_ < pd->sync_end_position_)
@@ -804,20 +999,24 @@ namespace uniq::internal
 			const auto sr = sample_rate_;
 			const auto st = speed_target_;
 			lock.unlock();
-			if (pd_asp < next_sample_position_)
+			if (pd_asp < nsp)
 			{
 				auto t = round(static_cast<double>(nsp - pd_asp) / sr * st * 1e3);
 				log::info(format("동기화 정확도: 느림(+{:.0f}ms)", t));
 			}
-			else if (pd_asp > next_sample_position_)
+			else if (pd_asp > nsp)
 			{
 				auto t = round(static_cast<double>(pd_asp - nsp) / sr * st * 1e3);
 				log::info(format("동기화 정확도: 빠름(-{:.0f}ms)", t));
 			}
 			else
 			{
-				log::info("동기화 정확도: 정확(0)");
+				log::info("동기화 정확도: 정확(0ms)");
 			}
+		}
+		else
+		{
+			log::info("동기화 대상 없음");
 		}
 		return true;
 	}
@@ -1056,17 +1255,40 @@ namespace uniq
 
 	auto audio_segment::play(const shared_ptr<audio_player> &player) -> bool
 	{
-		const audio_player::play_param _play_param {
+		auto target_list = vector(sync_target_set_.begin(), sync_target_set_.end());
+		// sort(target_list.begin(), target_list.end(), [](const id_t &a, const id_t &b) {
+		// 	return ID_manager::get_shared_ptr_by_ID<audio_segment>(a).value()->end_cue_->get()
+		// 		> ID_manager::get_shared_ptr_by_ID<audio_segment>(b).value()->end_cue_->get();
+		// });
+		audio_player::play_param _play_param {
 			.id = ID_get(),
 			.sample = {start_cue_->get(), end_cue_->get()},
 			.sync = {
 				.target = {
 					.time_hint = time_hint,
-					.list = vector(sync_target_set_.begin(), sync_target_set_.end())
+					.list = target_list,
 				},
 				.duration = {sync_duration_start_, sync_duration_end_}
 			},
+			.fade = {
+				.in = fade_in_,
+				.out = fade_out_,
+			}
 		};
+		for (const auto& id : fade_out_target_set_)
+		{
+			const auto& aso = ID_manager::get_shared_ptr_by_ID<audio_segment>(id);
+			if (!aso)
+			{
+				log::error("fade_out_target_list_에 존재하지 않는 id가 있습니다.");
+				continue;
+			}
+			const auto& ad = aso.value()->source_.lock()->data_;
+			_play_param.fade.out_list.emplace_back(audio_player::play_param::fade_s::out_data{
+				.id = id,
+				.data = ad,
+			});
+		}
 		return play(player, _play_param);
 	}
 
@@ -1166,6 +1388,44 @@ namespace uniq
 	auto audio_segment::sync_target_remove_all() -> bool
 	{
 		sync_target_set_.clear();
+		return true;
+	}
+
+	auto audio_segment::fade_out_end_time_set(std::chrono::microseconds time) -> bool
+	{
+		if (time < 0us)
+		{
+			log::error("time은 0 이상이어야 합니다.");
+			return false;
+		}
+		fade_out_.end_time_ = time;
+		return true;
+	}
+
+	auto audio_segment::fade_out_target_add(id_t id) -> bool
+	{
+		if (id == 0)
+		{
+			log::error("id는 0이 될 수 없습니다.");
+			return false;
+		}
+		fade_out_target_set_.emplace(id);
+		return true;
+	}
+
+	auto audio_segment::fade_out_target_add(const std::shared_ptr<audio_segment> &segment) -> bool
+	{
+		if (segment == nullptr)
+		{
+			log::error("segment is nullptr");
+			return false;
+		}
+		if (segment.get() == this)
+		{
+			log::error("자기 자신을 fade_out 대상으로 추가할 수 없습니다.");
+			return false;
+		}
+		fade_out_target_set_.emplace(segment->ID_get());
 		return true;
 	}
 

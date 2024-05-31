@@ -239,7 +239,6 @@ namespace uniq
 	void launchpad::LED_send()
 	{
 		if (!output) return;
-		//lightshow_
 		rgbav_grid_calculate();
 
 		auto p = LED_raw_data.get() + 6;
@@ -247,9 +246,9 @@ namespace uniq
 		{
 			auto& c_x = LED_grid_current[x];
 			auto& t_x = LED_grid_target[x];
-			auto& c2_x = lightshow_->internal.rgbav_grid_current[x];
-			auto& t2_x = lightshow_->internal.rgbav_grid_target[x];
-			auto& rf_x = lightshow_->internal.reset_flag[x];
+			auto& c2_x = rgbav_grid_current[x];
+			auto& t2_x = rgbav_grid_target[x];
+			// auto& rf_x = reset_flag[x];
 			for (auto y = 0; y < LED_h; y++)
 			{
 				auto& c_xy = c_x[y];
@@ -288,6 +287,7 @@ namespace uniq
 				// rf_xy = false;
 
 				if (mode == 0) continue;
+				// log::info("x: " + std::to_string(x) + ", y: " + std::to_string(y) + ", mode: " + std::to_string(mode));
 				if (mode == 1)
 				{
 					if (t_xy.v == 0xFF)
@@ -331,21 +331,23 @@ namespace uniq
 			}
 		}
 		if (p - LED_raw_data.get() <= 6) return;
+		// log::info("LED_send");
 		//printHex(p - 5, 5);
 		auto m = MidiMessage::createSysExMessage(LED_raw_data.get(), static_cast<int>(p - LED_raw_data.get()));
 		output->sendMessageNow(m);
 	}
 
-	void launchpad::rgbav_grid_calculate() const
+	void launchpad::rgbav_grid_calculate()
 	{
 		auto now = std::chrono::steady_clock::now();
 		auto standard_time = lightshow_->standard_time_get();
 		using sequence_time_t = lightshow::rgbav_sequence_grid::sequence_time_t;
 		auto time = std::chrono::duration_cast<sequence_time_t>(now - standard_time);
 		auto grid = lightshow_->rgbav_array_get(time);
+		// auto
 		for (auto x = 0; x < LED_w; x++)
 		{
-			auto& t_x = lightshow_->internal.rgbav_grid_target[x];
+			auto& t_x = rgbav_grid_target[x];
 			for (auto y = 0; y < LED_h; y++)
 			{
 				auto& t_xy = t_x[y];

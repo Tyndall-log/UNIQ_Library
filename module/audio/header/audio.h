@@ -75,12 +75,47 @@ namespace uniq
 		{
 			using audio_position_t = std::uint64_t;
 			using sample_position_t = std::uint64_t;
+
+			struct audio_low_buffer
+			{
+				float** buffer_ = nullptr;
+				std::shared_ptr<audio_data> data_;
+				sample_position_t sample_start_;
+				sample_position_t sample_end_;
+				uint8_t channel_num_;
+				audio_low_buffer(std::shared_ptr<audio_data> data, sample_position_t sample_start, sample_position_t sample_end, uint8_t channel_num);
+				~audio_low_buffer();
+			};
+			// struct mapping_data
+			// {
+			// 	struct
+			// 	{
+			// 		std::shared_ptr<audio_data> data;
+			// 		sample_position_t& sample_start;
+			// 		sample_position_t& sample_end;
+			// 		uint8_t channel_num;
+			// 	} in;
+			// 	struct
+			// 	{
+			// 		float** buffer;
+			// 		// std::unique_ptr<std::unique_ptr<float[]>[]> buffer;
+			// 	} out;
+			// 	mapping_data(std::shared_ptr<audio_data> data, sample_position_t& sample_start, sample_position_t& sample_end, uint8_t channel_num);
+			// 	~mapping_data();
+			// };
+
+			/// @brief 재생할 데이터를 버퍼에 쓰기
+			/// @return padding이 제외한 시작 위치(padding에 따라 음수 접근이 가능)
+			// static bool chennal_mapping_copy_with_padding(mapping_data &md);
+
 			struct play_data
 			{
 				id_t id_;
 				// std::shared_ptr<audio_data> data_;
 				// juce::AudioBuffer<float> buffer_;
-				float **buffer_ = nullptr;
+				// float **buffer_ = nullptr;
+				std::unique_ptr<audio_low_buffer> buffer_;
+
 				std::uint32_t sample_rate_ = 48000;
 				sample_position_t sample_num_ = 0;
 				std::uint8_t channel_num_ = 0;
@@ -101,7 +136,8 @@ namespace uniq
 					//다음 오디오가 continuity_tolerance 이내로 시작할 경우, 연속성 보장
 					id_t id_ = 0;
 					// std::shared_ptr<audio_data> data_;
-					float **buffer_ = nullptr;
+					// float **buffer_ = nullptr;
+					std::unique_ptr<audio_low_buffer> buffer_;
 					std::uint32_t sample_rate_ = 48000;
 					sample_position_t sample_num_ = 0;
 					std::uint8_t channel_num_ = 0;
@@ -112,11 +148,11 @@ namespace uniq
 					// sample_position_t start_sample_ = 0;
 					// sample_position_t end_sample_ = 0xffffffffui32;
 					bool exist_ = false; //true면 다음 데이터가 존재함(즉, fade_out_ 방지)
-					~next_s();
+					// ~next_s();
 				};
 				std::deque<next_s> next_que; //재생될(pos_) 순서대로 정렬(fade_out_.end_time_내에 있는 모든 데이터 필요)
 
-				~play_data();
+				// ~play_data();
 			};
 
 			struct sync_playing_data_compare
@@ -172,7 +208,7 @@ namespace uniq
 			// double speed_current_duration_ = 1; //0~1
 			juce::SmoothedValue<double, juce::ValueSmoothingTypes::Multiplicative> speed_smoothed_;
 			float gain_ = 1.0f;
-			double sample_rate_ = 0;
+			double sample_rate_ = 0; //오디오(prepareToPlay)의 샘플 속도
 			int samples_per_block_expected_ = 0;
 			// uint8_t channel_num_ = 0;
 			static_assert(std::atomic_uint8_t::is_always_lock_free, "std::atomic_uint8_t is not lock free");
@@ -191,25 +227,6 @@ namespace uniq
 
 			// //반드시 sl_ 잠금 상태에서 호출
 			// void buffer_ready(const int &target_channel_num, const int &target_sample_num);
-
-			struct mapping_data
-			{
-				struct
-				{
-					std::shared_ptr<audio_data> data;
-					sample_position_t& sample_start;
-					sample_position_t& sample_end;
-					uint8_t channel_num;
-				} in;
-				struct
-				{
-					float** buffer;
-				} out;
-			};
-
-			/// @brief 재생할 데이터를 버퍼에 쓰기
-			/// @return padding이 제외한 시작 위치(padding에 따라 음수 접근이 가능)
-			static bool chennal_mapping_copy_with_padding(mapping_data &md);
 
 		public:
 			~audio_custom_source() override;
@@ -399,7 +416,7 @@ namespace uniq
 		sync_duration_t sync_duration_end_{}; //일반적으로 양수
 		internal::fade_low_data fade_in_{};
 		internal::fade_low_data fade_out_{};
-		std::vector<id_t> fade_out_target_list_{}; //일반적으로 1개만 사용
+		std::set<id_t> fade_out_target_set_{}; //일반적으로 1개만 사용
 	protected:
 		audio_segment(const std::shared_ptr<audio_source>& source, const std::shared_ptr<audio_cue>& start_cue, const std::shared_ptr<audio_cue>& end_cue);
 
@@ -412,11 +429,13 @@ namespace uniq
 		auto sync_target_remove(id_t id) -> bool;
 		auto sync_target_remove(const std::shared_ptr<audio_segment>& segment) -> bool;
 		auto sync_target_remove_all() -> bool;
+		auto fade_out_end_time_set(std::chrono::microseconds time) -> bool;
+		auto fade_out_target_add(id_t id) -> bool;
+		auto fade_out_target_add(const std::shared_ptr<audio_segment>& segment) -> bool;
 		auto time_hint_set(std::chrono::microseconds time_hint) -> bool;
 		auto sync_duration_set(const sync_duration_t& start, const sync_duration_t& end) -> bool;
 		void start_cue_change(const std::shared_ptr<audio_cue>& cue);
 		void end_cue_change(const std::shared_ptr<audio_cue>& cue);
-
 	};
 }
 

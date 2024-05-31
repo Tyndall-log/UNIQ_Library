@@ -336,6 +336,17 @@ namespace uniq
 
 	void uniq::guide_update(bool play_audio_flag)
 	{
+		unique_lock lock(guide_update_lock_);
+		//가이드 클리어
+		for (int x = 0; x < 10; ++x)
+		{
+			for (int y = 0; y < 10; ++y)
+			{
+				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
+			}
+		}
+
 		if (!guide_start_) // || guide_play_)
 		{
 			while (!guide_group_deque_.empty())
@@ -343,13 +354,14 @@ namespace uniq
 				auto guide_group = guide_group_deque_.front();
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
-				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				guide_group_deque_.pop_front();
 			}
 			return;
 		}
 
-		//guide_cue_보다 같거나 큰 첫 번째 오디오 그룹을 찾아서 guide_cue를 설정
+		//guide_cue_보다 같거나 큰 첫 번째 오디오 그룹을 찾아서 guide_target_cue를 설정
 		auto guide_target_cue = timeline::cue_point_t::max();
 		auto guide_target_group = shared_ptr<timeline_group>();
 		for (const auto& timeline_ : timeline_list_)
@@ -411,16 +423,17 @@ namespace uniq
 				if (!play_audio_flag)
 				{
 					//현재 페이지에 해당하는 LED 표시
-					launchpad_->rgb_set(page_x, page_y, guide_color_.r, guide_color_.g, guide_color_.b);
+					// launchpad_->rgb_set(page_x, page_y, guide_color_.r, guide_color_.g, guide_color_.b);
+					launchpad_->lightshow_get()->guide_color_set(page_x, page_y, guide_color_);
 				}
 			}
 			else
 			{
-				log::error("다음 가이드 페이지로 가는 버튼이 없습니다.");
+				log::error("다음 가이드 페이지로 가는 버튼이 없습니다. id: " + to_string(guide_target_page->ID_get()));
 				return;
 			}
 		}
-		auto guide_target_next_page = page_set_.upper_bound(guide_target_page);
+		// auto guide_target_next_page = page_set_.upper_bound(guide_target_page);
 
 		while (!guide_group_deque_.empty())
 		{
@@ -447,12 +460,13 @@ namespace uniq
 					{
 						current_page_ = guide_target_page;
 					}
-					log::info("play: " + guide_group.group->segment->source_.lock()->internal.data_get()->name_);
+					// log::info("play: " + guide_group.group->segment->source_.lock()->internal.data_get()->name_);
 				}
 				guide_group_deque_.pop_front();
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
-				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
 			}
 			break;
@@ -466,10 +480,20 @@ namespace uniq
 				guide_group_deque_.pop_back();
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
-				launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				//launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
 			}
 			break;
+		}
+
+		// 가이드 표시
+		for (const auto& guide_group : guide_group_deque_)
+		{
+			auto x = guide_group.group->button_x.get();
+			auto y = guide_group.group->button_y.get();
+			// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
+			launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 		}
 
 		for (const auto& timeline_ : timeline_list_)
@@ -491,7 +515,8 @@ namespace uniq
 					guide_group_deque_.emplace_back(group, false);
 					auto x = group->button_x.get();
 					auto y = group->button_y.get();
-					launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
+					// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
+					launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 				}
 				++it_start;
 			}
@@ -616,7 +641,6 @@ namespace uniq
 						}
 					}
 					guide_update();
-					launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00);
 					// return true;
 				}
 			}
@@ -671,16 +695,31 @@ namespace uniq
 		constexpr timeline::cue_point_t end_duration = 50ms;
 		const auto target_group_start_cue = target_group->start_cue->cue_point.get();
 		const auto& group_callback_set = target_timeline->internal.group_callback_set_get();
+		// log::info("target_group->segment->ID_get(): " + to_string(target_group->segment->ID_get()));
+		// log::info("target_group->start_cue->cue_point.get(): " + to_string(target_group->start_cue->cue_point.get().count()));
 		//TODO: 효율적인 sync_target_add 구현
 		for (auto &group_callback : group_callback_set)
 		{
 			if (group_callback->group == target_group) continue;
-			auto& group = group_callback->group;
-			auto group_end_cue = group->start_cue->cue_point.get() + group->segment->cue_length_get();
-			if (group_end_cue < target_group_start_cue + start_duration) continue;
-			if (target_group_start_cue + end_duration < group->start_cue->cue_point.get()) break;
+			const auto& group = group_callback->group;
+			const auto group_end_cue = group->start_cue->cue_point.get() + group->segment->cue_length_get();
+			// if (group_end_cue < target_group_start_cue + start_duration) continue;
+			// if (target_group_start_cue + end_duration < group->start_cue->cue_point.get()) break;
+			if (group_end_cue + end_duration < target_group_start_cue) continue;
+			if (target_group_start_cue < group_end_cue + start_duration) continue;
 			target_group->segment->sync_target_add(group_callback->group->segment->ID_get());
 			// log::info("sync_target_add: " + group->segment->source_.lock()->internal.data_get()->name_);
+			// log::info("group->segment->ID_get(): " + to_string(group->segment->ID_get()));
+			// log::info("group->start_cue->cue_point.get(): " + to_string(group->start_cue->cue_point.get().count()));
+
+		}
+		// fade out
+		const auto next_group_callback = group_callback_set.upper_bound(target_group_start_cue);
+		if (next_group_callback != group_callback_set.end())
+		{
+			const auto& next_group = (*next_group_callback)->group;
+			// target_group->segment->fade_out_target_add(next_group->segment->ID_get());
+			// target_group->segment->fade_out_end_time_set(200ms);
 		}
 		target_group->segment->sync_duration_set(start_duration, end_duration);
 		target_group->segment->time_hint_set(target_group_start_cue);
@@ -984,7 +1023,10 @@ namespace uniq
 
 		//누른키 표시
 		{
-			launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00);
+			// launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00)
+			lightshow::rgbav color;
+			color.rgba_set(0x00, 0x7F, 0x00, 0xFF);
+			launchpad_->lightshow_get()->pressed_color_set(x, y, color);
 		}
 
 		if (guide_button_down_check(x, y)) return;
@@ -1072,7 +1114,8 @@ namespace uniq
 
 		//누른키 표시 해제
 		{
-			launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+			// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
+			launchpad_->lightshow_get()->pressed_color_set(x, y, lightshow::rgbav{});
 		}
 	}
 

@@ -83,7 +83,8 @@ namespace uniq::lightshow
 		};
 		void clear();
 		[[nodiscard]] auto rgbav_pair_get(std::uint8_t x, std::uint8_t y, sequence_time_t time) const -> std::optional<rgbav_pair_last>;
-		[[nodiscard]] auto rgbav_sequence_get(std::uint8_t x, std::uint8_t y) const -> std::optional<rgbav_sequence>;
+		[[nodiscard]] auto rgbav_sequence_get(std::uint8_t x, std::uint8_t y) const -> std::optional<std::
+			reference_wrapper<const rgbav_sequence>>;
 		[[nodiscard]] auto width_get() const -> std::uint8_t;
 		[[nodiscard]] auto height_get() const -> std::uint8_t;
 	};
@@ -101,7 +102,7 @@ namespace uniq::lightshow
 	public:
 		explicit lightshow_data(const rgbav_sequence_grid& rgbav_sequence_grid, uint8_t repeat = 1, sequence_time_t start_time = sequence_time_t(0));
 		auto rgbav_sequence_grid_get() -> rgbav_sequence_grid&;
-		auto rgbav_sequence_grid_get(sequence_time_t time, uint8_t x, uint8_t y, uint8_t width, uint8_t height) const -> rgbav_sequence_grid;
+		[[nodiscard]] auto rgbav_sequence_grid_get(sequence_time_t time, uint8_t x, uint8_t y, uint8_t width, uint8_t height) const -> rgbav_sequence_grid;
 		auto start_time_set(sequence_time_t start_time) -> void;
 		[[nodiscard]] auto start_time_get() const -> sequence_time_t;
 		[[nodiscard]] auto duration_get() const -> sequence_time_t;
@@ -135,6 +136,7 @@ namespace uniq::lightshow
 
 	class lightshow : public ID<lightshow>
 	{
+	public:
 		using sequence_time_t = rgbav_sequence_grid::sequence_time_t;
 		struct rgbav_id
 		{
@@ -157,14 +159,19 @@ namespace uniq::lightshow
 			std::shared_ptr<lightshow_data> lightshow_data;
 			sequence_time_t start_time;
 		};
-		const uint8_t width_ = 10;
-		const uint8_t height_ = 10;
 		using rgbav_id_array = std::array<std::array<rgbav_id, 10>, 10>;
+		using rgbav_id_time_array = std::array<std::array<rgbav_id_time, 10>, 10>;
 		using rgbav_id_sequence = std::set<rgbav_id_time, rgbav_id_time_compare>;
 		using rgbav_id_sequence_array = std::array<std::array<rgbav_id_sequence, 10>, 10>;
+	private:
+		const uint8_t width_ = 10;
+		const uint8_t height_ = 10;
 		rgbav_sequence_grid rgbav_id_sequence_ = rgbav_sequence_grid(width_, height_);
 		lightshow_pair pad_lightshow_data_[10][10]; // [x][y]
 		rgbav_id_sequence_array pad_rgbav_id_sequence_; // [x][y]
+		rgbav_id_time_array pad_lightshow_last_color_; // [x][y]
+		rgbav_id_array pad_pressed_color_; // [x][y]
+		rgbav_id_array pad_guide_color_; // [x][y]
 		rgbav_id_array pad_last_color_; // [x][y]
 		std::chrono::steady_clock::time_point standard_time_; //기준 시간
 		spin_lock lock_;
@@ -173,14 +180,16 @@ namespace uniq::lightshow
 		{
 			lightshow* lightshow_;
 			explicit internal(lightshow* lightshow);
-			using reset_flag_array = std::array<std::array<bool, 10>, 10>;
-			rgbav_id_array rgbav_grid_current;
-			rgbav_id_array rgbav_grid_target;
-			reset_flag_array reset_flag;
+			// using reset_flag_array = std::array<std::array<bool, 10>, 10>;
+			// rgbav_id_time_array rgbav_grid_current;
+			// rgbav_id_time_array rgbav_grid_target;
+			// reset_flag_array reset_flag;
 		} internal{this};
 		lightshow();
 		auto standard_time_get() const -> std::chrono::steady_clock::time_point;
 		auto lightshow_data_set(const std::shared_ptr<lightshow_data>& lightshow_data, uint8_t x, uint8_t y, sequence_time_t delay = sequence_time_t(0)) -> void;
 		auto rgbav_array_get(sequence_time_t time) -> rgbav_id_array;
+		auto guide_color_set(uint8_t x, uint8_t y, rgbav color, int id = -1) -> void;
+		auto pressed_color_set(uint8_t x, uint8_t y, rgbav color) -> void;
 	};
 }
