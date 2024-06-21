@@ -21,6 +21,10 @@ if (NOT TARGET UNIQ_Library_audio)  #audio 모듈이 없다면
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../audio)
 endif()
 
+if (NOT TARGET UNIQ_Library_lightshow)  #lightshow 모듈이 없다면
+	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../lightshow)
+endif()
+
 if (NOT TARGET UNIQ_Library_launchpad)  #launchpad 모듈이 없다면
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../launchpad)
 endif()
@@ -33,6 +37,7 @@ function(link_library target)  #라이브러리 링크 함수
 	target_link_libraries(${target} PRIVATE juce::juce_core)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_audio)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad)
 	target_link_libraries(${target} PRIVATE UNIQ_Library_uniq)
 endfunction()
@@ -42,6 +47,7 @@ add_executable(UNIQ_Library_workspace_test ${CONSOLE_TEST_FILES} ${SOURCE_FILES}
 target_include_directories(UNIQ_Library_workspace_test PUBLIC header)  #실행 파일에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_workspace_test)  #라이브러리 링크
 
-add_library(UNIQ_Library_workspace ${SOURCE_FILES})  #라이브러리 생성
+add_library(UNIQ_Library_workspace)  #라이브러리 생성
+target_sources(UNIQ_Library_workspace INTERFACE ${SOURCE_FILES})  #라이브러리에 소스 파일을 추가합니다.
 target_include_directories(UNIQ_Library_workspace PUBLIC header)  #라이브러리에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_workspace)  #라이브러리 링크

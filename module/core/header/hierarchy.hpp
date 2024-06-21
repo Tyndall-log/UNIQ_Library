@@ -53,7 +53,7 @@ namespace uniq::hierarchy
 		}
 		std::stack<chain*> stack; //DFS(깊이 우선 탐색)를 위한 스택
 		stack.push(this);
-		std::shared_ptr<T> target = sync ? parent_->value_ : make_shared<T>(*parent_->value_);
+		std::shared_ptr<T> target = sync ? parent_->value_ : std::make_shared<T>(*parent_->value_);
 		while (!stack.empty())
 		{
 			chain* current = stack.top();

@@ -4,6 +4,7 @@
 #include "audio.h"
 
 #include <utility>
+#include <format>
 
 
 using namespace std;
@@ -47,7 +48,7 @@ namespace uniq::internal
 		const string &extension, const string &path, const string &name)
 	{
 		const auto format_manager = audio_format_manager::get();
-		const unique_ptr<AudioFormatReader> reader(format_manager->createReaderFor(move(input_stream)));
+		const unique_ptr<AudioFormatReader> reader(format_manager->createReaderFor(std::move(input_stream)));
 		if (reader == nullptr)
 		{
 			log::println("audio_data::load: reader is nullptr");
@@ -229,7 +230,7 @@ namespace uniq::internal
 
 		//NOTE: 여기서 fade_out_ 중첩 처리를 해야 할 수도 있음.
 
-		return move(combo_list);
+		return std::move(combo_list);
 	}
 
 
@@ -667,7 +668,7 @@ namespace uniq::internal
 				//위치 계산
 				const double input_sample_pos = (static_cast<double>(output_pos - p->audio_start_position_)
 					+ next_sample_position_delay_ - p->audio_start_position_delay_) * rate;
-				if (0xffffffffui32<input_sample_pos) //debugging
+				if (0xffffffffu<input_sample_pos) //debugging
 					// cout << "p->audio_start_position_: " << p->audio_start_position_ << " " << "output_pos: " << output_pos << endl;
 					log::warn("input_sample_pos: " + to_string(input_sample_pos));
 				// else if (input_sample_pos < 10 || input_sample_pos > 44090)
@@ -708,7 +709,7 @@ namespace uniq::internal
 					//다음 오디오 데이터가 준비되어 있지 않으면
 					//next 데이터를 p 데이터로 이동
 					// p->id_ = next.id_;
-					p->buffer_ = move(next.buffer_);
+					p->buffer_ = std::move(next.buffer_);
 					p->sample_rate_ = next.sample_rate_;
 					p->sample_num_ = next.sample_num_;
 					p->channel_num_ = next.channel_num_;
@@ -821,7 +822,7 @@ namespace uniq::internal
 		const auto sample_length = sample_end - sample_start;
 		const auto pd = make_shared<play_data>();
 		pd->id_ = param.id;
-		pd->buffer_ = move(buffer);
+		pd->buffer_ = std::move(buffer);
 		pd->sample_rate_ = data->sample_rate_;
 		pd->sample_num_ = sample_length;
 		pd->channel_num_ = channel_num_;
@@ -975,7 +976,7 @@ namespace uniq::internal
 			// const auto& pfo_audio_start_position_delay = pd->audio_end_position_delay_;
 			pd->next_que.push_back({
 				.id_ = pfo.id,
-				.buffer_ = move(pfo_buffer),
+				.buffer_ = std::move(pfo_buffer),
 				.sample_rate_ = pfo.data->sample_rate_,
 				.sample_num_ = pfo_sample_end - pfo_sample_start,
 				.channel_num_ = channel_num_,
@@ -986,12 +987,13 @@ namespace uniq::internal
 		}
 
 		waiting_data_set_.insert(pd);
-		if (pd->sync_start_position_ < pd->sync_end_position_)
-			if (next_sample_position_ < pd->sync_end_position_)
-				if (pd->sync_start_position_ <= next_sample_position_)
-					sync_playing_data_set_.insert(pd);
-				else
-					sync_waiting_data_set_.insert(pd);
+		if (pd->sync_start_position_ < pd->sync_end_position_ && next_sample_position_ < pd->sync_end_position_)
+		{
+			if (pd->sync_start_position_ <= next_sample_position_)
+				sync_playing_data_set_.insert(pd);
+			else
+				sync_waiting_data_set_.insert(pd);
+		}
 
 		if (sync_target_play_data)
 		{
@@ -1152,7 +1154,7 @@ namespace uniq
 	                                        const string &extension, const string &path, const string &name)
 			-> std::shared_ptr<audio_source>
 	{
-		auto data = uniq::internal::audio_data::load(move(input_stream), extension, path, name);
+		auto data = uniq::internal::audio_data::load(std::move(input_stream), extension, path, name);
 		if (data == nullptr)
 		{
 			log::println("audio_source::audio_load: data is nullptr");

@@ -70,12 +70,23 @@ namespace uniq
 		mm->runDispatchLoop();
 	}
 
-	message_thread::message_thread() : Thread("UNIQ_MessageThread")
+	message_thread::message_thread()
+#ifndef ANDROID
+	: Thread("UNIQ_MessageThread")
+
 	{
 		startThread();
 		log::info(wait(1000) ? "message_thread start" : "message_thread fail");
 	}
+#else
+	{
+		mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
+		mm_->runDispatchLoop();
+		log::info("message_thread start");
+	}
+#endif
 
+#ifndef ANDROID
 	message_thread::~message_thread()
 	{
 		if (!mm_) return;
@@ -93,10 +104,12 @@ namespace uniq
 		mm_.reset();
 		DeletedAtShutdown::deleteAll();
 	}
+#endif
 
 	shared_ptr<message_thread> message_thread::get()
 	{
 		lock_guard lock(mutex_);
+		if (instance_) return instance_;
 		if (!instance_weak_.expired()) return instance_weak_.lock();
 		struct make_shared_enabler : message_thread {};
 		shared_ptr<message_thread> instance = make_shared<make_shared_enabler>();

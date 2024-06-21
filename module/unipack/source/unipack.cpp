@@ -84,8 +84,8 @@ namespace uniq::unipack
 		if (iter2 == zip_list.end())
 			return zip_list.end();
 		if (get<0>(*iter2).compare(path + name) != 0)
-			return move(iter1);
-		return move(iter2);
+			return std::move(iter1);
+		return std::move(iter2);
 	}
 
 	auto unipack::keysound_part(ZipFile &zip, vector<tuple<String, int>> &zip_list, const String &root_path,
@@ -504,16 +504,16 @@ namespace uniq::unipack
 						sound_ext = "unknown";
 					auto sound_path = zip_path + ":" + get<0>(*sound_iter).toStdString();
 					// log::info(sound_ext.toStdString() + ", " + sound_path + ", " + sound_name.toStdString());
-					// uniq->internal.audio_load(move(sound_stream),
+					// uniq->internal.audio_load(std::move(sound_stream),
 					// 	sound_ext.toStdString(), sound_path, sound_name.toStdString());
-					auto sound_source = uniq->internal.audio_load(move(sound_stream),
+					auto sound_source = uniq->internal.audio_load(std::move(sound_stream),
 						sound_ext.toStdString(), sound_path, sound_name.toStdString());
 					if (!sound_source)
 					{
 						log::warn("\"" + sound_name.toStdString() + "\" 오디오 로드 실패");
 						continue;
 					}
-					sound_source_map.emplace(sound_name.toStdString(), move(sound_source));
+					sound_source_map.emplace(sound_name.toStdString(), std::move(sound_source));
 				}
 				break;
 			}

@@ -8,19 +8,7 @@ set(CMAKE_CXX_STANDARD 20)  #c++20 표준 사용
 
 # message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 # message(STATUS "CMAKE_EXPORT_COMPILE_COMMANDS: ${CMAKE_EXPORT_COMPILE_COMMANDS}")
-set(UNIQ_INCOMPATIBLE_LICENSE_BAN ON)  #LGPL-3.0-linking-exception 라이선스와 호환되지 않는 라이선스 사용 금지
-
-if(ANDROID)
-	# 참고: https://atsushieno.github.io/2021/01/16/juce-cmake-android-now-works.html
-	set(OBOE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/module/juce/modules/juce_audio_devices/native/oboe")
-	add_subdirectory(${OBOE_DIR} ./oboe)
-
-	add_library(cpufeatures STATIC "${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
-	#set_source_files_properties("${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
-	add_definitions("-DJUCE_ANDROID=1")
-	include_directories(AFTER "${ANDROID_NDK}/sources/android/cpufeatures")
-	set(CMAKE_SYSTEM_NAME Windows)  #시스템 이름 설정
-endif()
+set(UNIQ_INCOMPATIBLE_LICENSE_BAN OFF)  #LGPL-3.0-linking-exception 라이선스와 호환되지 않는 라이선스 사용 금지
 
 # ---------- JUCE 라이브러리 다운로드 및 빌드 ----------
 if (NOT DEFINED JUCE_VERSION)
@@ -75,6 +63,26 @@ if (NOT DEFINED JUCE_VERSION)
 		message(STATUS "잔여 파일 제거 실패")
 	endif()
 
+	if(ANDROID)
+		message(STATUS "안드로이드 빌드 설정")
+		# 참고: https://atsushieno.github.io/2021/01/16/juce-cmake-android-now-works.html
+		if (NOT TARGET oboe)
+			set(OBOE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/module/juce/modules/juce_audio_devices/native/oboe")
+			if (NOT EXISTS ${OBOE_DIR})
+				message(FATAL_ERROR "Oboe 디렉토리가 없습니다.")
+			else()
+				add_subdirectory(${OBOE_DIR} ./oboe)
+			endif()
+		endif()
+		add_compile_definitions(_LIBCPP_ENABLE_EXPERIMENTAL)
+
+		add_library(cpufeatures STATIC "${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
+		#set_source_files_properties("${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
+		add_definitions("-DJUCE_ANDROID=1")
+		include_directories(AFTER "${ANDROID_NDK}/sources/android/cpufeatures")
+		set(CMAKE_SYSTEM_NAME Windows)  #시스템 이름 설정
+	endif()
+
 	# JUCE 추가
 	add_subdirectory(${JUCE_DIR})
 endif()
@@ -102,3 +110,37 @@ add_compile_definitions(JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
 #		target_link_libraries(${target} PRIVATE cpufeatures)
 #	endif()
 #endfunction()
+
+function(link_library target)  #라이브러리 링크 함수
+	target_link_libraries(${target} PRIVATE juce::juce_core)
+	target_link_libraries(${target} PRIVATE juce::juce_audio_devices)
+	target_link_libraries(${target} PRIVATE juce::juce_events)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_audio)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_uniq)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_unipack)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_workspace)
+	if (ANDROID)
+		target_link_libraries(${target} PRIVATE oboe)
+		target_link_libraries(${target} PRIVATE cpufeatures)
+	endif()
+endfunction()
+
+add_library(UNIQ_Library SHARED)  #라이브러리 생성
+link_library(UNIQ_Library)  #라이브러리 링크
+
+#function(link_library target)
+#	target_link_libraries(${target} PRIVATE juce::juce_core)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/core/libUNIQ_Library_core.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/audio/libUNIQ_Library_audio.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/lightshow/libUNIQ_Library_lightshow.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/launchpad/libUNIQ_Library_launchpad.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/uniq/libUNIQ_Library_uniq.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/unipack/libUNIQ_Library_unipack.a)
+#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/workspace/libUNIQ_Library_workspace.a)
+#endfunction()
+#
+#add_library(UNIQ_Library SHARED)  # dummy.cpp는 빈 소스 파일로 사용
+#link_library(UNIQ_Library)

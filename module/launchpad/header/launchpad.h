@@ -20,6 +20,7 @@ namespace uniq
 		static std::set<launchpad*> launchpad_list;
 		static std::unique_ptr<LED_global_timer> LED_timer;
 		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
+		static const std::map<std::string, std::string> android_launchpad_map;
 		static juce::SpinLock mutex;
 		
 		std::string midi_input_kind_name;
@@ -86,7 +87,7 @@ namespace uniq
 		{
 		public:
 			std::string kind_name = "none";
-			midi_device_info(const juce::MidiDeviceInfo&& info);
+			explicit midi_device_info(const juce::MidiDeviceInfo&& info);
 			midi_device_info(const juce::MidiDeviceInfo&& info, const juce::String& name);
 		};
 		
@@ -123,10 +124,10 @@ namespace uniq
 		[[nodiscard]]
 		auto input_button_up_callback_add(std::function<void(std::uint8_t, std::uint8_t)>&& callback) -> int;
 		bool input_button_up_callback_remove(int callback_id);
-		static std::vector<midi_device_info> get_available_input_list();
-		static std::vector<midi_device_info> get_available_output_list();
-		std::string input_identifier_get();
-		std::string output_identifier_get();
+		static auto get_available_input_list() -> std::vector<midi_device_info>;
+		static auto get_available_output_list() -> std::vector<midi_device_info>;
+		std::string input_identifier_get() const;
+		std::string output_identifier_get() const;
 	};
 	
 	std::vector<juce::uint8> hexStringToBytes(const juce::String&);

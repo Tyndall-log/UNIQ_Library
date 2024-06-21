@@ -23,13 +23,13 @@ int test1()
 	ADM = adm_promise.get_future().get();
 	
 	auto list = launchpad::get_available_output_list();
-	for (auto& l : list)
+	for (const auto& l : list)
 	{
 		cout << l.name << endl;
 		cout << l.kind_name << endl;
 	}
 	
-	if (list.size() <= 0)
+	if (list.empty())
 	{
 		cout << "인식된 런치패드 없음." << endl;
 		return 0;

@@ -435,14 +435,19 @@ namespace uniq
 	};
 
 	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
-	class message_thread : public juce::Thread
+	class message_thread
+#ifndef ANDROID
+		: public juce::Thread
+#endif
 	{
 		inline static std::unique_ptr<juce::MessageManager> mm_ = nullptr;
 		inline static std::shared_ptr<message_thread> instance_ = nullptr;
 		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::mutex mutex_;
 		message_thread();
+#ifndef ANDROID
 		void run() override;
+#endif
 		template<typename Func, typename Promise>
 		static void execute_and_set(Func &f, Promise &promise)
 		{
@@ -464,7 +469,9 @@ namespace uniq
 			}
 		}
 	public:
+# ifndef ANDROID
 		~message_thread() override;
+# endif
 		message_thread(const message_thread&) = delete; //복사 생성자 삭제
 		message_thread(message_thread&&) = delete; //이동 생성자 삭제
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제

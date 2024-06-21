@@ -146,7 +146,7 @@ namespace uniq
 					audio_position_t audio_start_position_ = 0;
 					double audio_start_position_delay_ = 0; //audio_position_t 단위 (0~1)
 					// sample_position_t start_sample_ = 0;
-					// sample_position_t end_sample_ = 0xffffffffui32;
+					// sample_position_t end_sample_ = 0xffffffffu;
 					bool exist_ = false; //true면 다음 데이터가 존재함(즉, fade_out_ 방지)
 					// ~next_s();
 				};
@@ -238,19 +238,19 @@ namespace uniq
 			struct add_audio_param
 			{
 				id_t id = 0;
-				struct
+				struct sample_s
 				{
 					sample_position_t start = 0;
-					sample_position_t end = 0xffffffffui32;
+					sample_position_t end = std::numeric_limits<sample_position_t>::max();
 				} sample;
-				struct
+				struct sync_s
 				{
-					struct
+					struct target_s
 					{
 						std::chrono::microseconds time_hint{0};
 						std::vector<id_t> list{};
 					} target;
-					struct
+					struct duration_s
 					{
 						std::chrono::duration<std::int32_t, std::micro> start{}; //일반적으로 음수(최대 +- 35분)
 						std::chrono::duration<std::int32_t, std::micro> end{}; //일반적으로 양수
@@ -268,7 +268,7 @@ namespace uniq
 						struct sample_s
 						{
 							sample_position_t start = 0;
-							sample_position_t end = 0xffffffffui32;
+							sample_position_t end = std::numeric_limits<sample_position_t>::max();
 						} sample;
 						struct sync_s
 						{
@@ -284,8 +284,13 @@ namespace uniq
 					// 	}
 					// };
 				} fade;
+				static const add_audio_param& default_param()
+				{
+					static const add_audio_param default_param{};
+					return default_param;
+				}
 			};
-			auto add_audio(const std::shared_ptr<audio_data>& data, const add_audio_param& param = {}) -> bool;
+			auto add_audio(const std::shared_ptr<audio_data>& data, const add_audio_param& param = add_audio_param::default_param()) -> bool;
 		};
 	}
 

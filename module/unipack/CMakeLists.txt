@@ -47,6 +47,7 @@ add_executable(UNIQ_Library_unipack_test ${CONSOLE_TEST_FILES} ${SOURCE_FILES} h
 target_include_directories(UNIQ_Library_unipack_test PUBLIC header)  #실행 파일에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_unipack_test)  #라이브러리 링크
 
-add_library(UNIQ_Library_unipack ${SOURCE_FILES})  #라이브러리 생성
+add_library(UNIQ_Library_unipack)  #라이브러리 생성
+target_sources(UNIQ_Library_unipack INTERFACE ${SOURCE_FILES})  #라이브러리에 소스 파일을 추가합니다.
 target_include_directories(UNIQ_Library_unipack PUBLIC header)  #라이브러리에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_unipack)  #라이브러리 링크

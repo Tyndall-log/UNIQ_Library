@@ -11,32 +11,31 @@ namespace uniq::lightshow
 	{
 		union
 		{
+			std::uint32_t all{0x00FF0000};
 			struct
 			{
 				std::uint8_t r;
 				union
 				{
-					struct
-					{
-						std::uint8_t g;
-						std::uint8_t b;
-					};
+					std::uint8_t g;
 					struct
 					{
 						std::uint8_t off_flag : 1;
 						std::uint8_t v_flag : 1;
-						std::uint8_t : 0; // padding
-						std::uint8_t v : 8;
 					};
+				};
+				union
+				{
+					std::uint8_t b;
+					std::uint8_t v;
 				};
 				std::uint8_t a;
 			};
-			std::uint32_t all;
 		};
 		rgbav(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a);
 		explicit rgbav(std::uint8_t v);
 		explicit rgbav(std::uint32_t all);
-		explicit rgbav();
+		rgbav();
 
 		void rgba_set(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a);
 		[[nodiscard]] auto rgba_get() const -> std::tuple<std::uint8_t, std::uint8_t, std::uint8_t, std::uint8_t>;
@@ -141,11 +140,11 @@ namespace uniq::lightshow
 		struct rgbav_id
 		{
 			rgbav color;
-			int id;
+			int id = 0;
 		};
 		struct rgbav_id_time : rgbav_id
 		{
-			sequence_time_t time;
+			sequence_time_t time{0};
 		};
 		struct rgbav_id_time_compare
 		{
@@ -168,11 +167,11 @@ namespace uniq::lightshow
 		const uint8_t height_ = 10;
 		rgbav_sequence_grid rgbav_id_sequence_ = rgbav_sequence_grid(width_, height_);
 		lightshow_pair pad_lightshow_data_[10][10]; // [x][y]
-		rgbav_id_sequence_array pad_rgbav_id_sequence_; // [x][y]
-		rgbav_id_time_array pad_lightshow_last_color_; // [x][y]
-		rgbav_id_array pad_pressed_color_; // [x][y]
-		rgbav_id_array pad_guide_color_; // [x][y]
-		rgbav_id_array pad_last_color_; // [x][y]
+		rgbav_id_sequence_array pad_rgbav_id_sequence_ = {}; // [x][y]
+		rgbav_id_time_array pad_lightshow_last_color_ = {}; // [x][y]
+		rgbav_id_array pad_pressed_color_ = {}; // [x][y]
+		rgbav_id_array pad_guide_color_ = {}; // [x][y]
+		rgbav_id_array pad_last_color_ = {}; // [x][y]
 		std::chrono::steady_clock::time_point standard_time_; //기준 시간
 		spin_lock lock_;
 	public:

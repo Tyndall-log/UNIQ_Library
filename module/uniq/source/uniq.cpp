@@ -74,7 +74,7 @@ namespace uniq
 		return lhs < *rhs->group->start_cue->cue_point;
 	}
 
-	timeline::timeline(std::string name) : name_(move(name))
+	timeline::timeline(std::string name) : name_(std::move(name))
 	{
 		last_play_group_grid_ = vector(w_, vector<shared_ptr<timeline_group>>(h_, nullptr));
 		key_group_grid_ = vector(w_, vector(h_, set<shared_ptr<timeline_group>, timeline_group_compare_start_cue>()));
@@ -567,7 +567,9 @@ namespace uniq
 		{
 			// guide_togle();
 			guide_toggle_button_down_time_ = chrono::steady_clock::now();
-			return true;
+			if (guide_start_)
+				return true;
+			return false;
 		}
 
 		//가이드 누름 확인
@@ -759,7 +761,7 @@ namespace uniq
 	auto uniq::internal::audio_load(unique_ptr<InputStream> input_stream, const string &extension,
 	                                const string &path, const string &name) const -> shared_ptr<audio_source>
 	{
-		auto audio_source = audio_source::internal::audio_load(move(input_stream), extension, path, name);
+		auto audio_source = audio_source::internal::audio_load(std::move(input_stream), extension, path, name);
 		if (!audio_source)
 		{
 			log::warn("\"" + name + "\" 오디오 로드 실패");
@@ -985,12 +987,12 @@ namespace uniq
 	bool uniq::launchpad_auto_connect()
 	{
 		auto midi_input_device_info_list = launchpad::get_available_input_list();
-		for (auto& l : midi_input_device_info_list)
+		for (const auto& l : midi_input_device_info_list)
 		{
 			log::info(l.name.toStdString() + " => " + l.kind_name);
 		}
 		auto midi_output_device_info_list = launchpad::get_available_output_list();
-		for (auto& l : midi_output_device_info_list)
+		for (const auto& l : midi_output_device_info_list)
 		{
 			log::info(l.name.toStdString() + " => " + l.kind_name);
 		}
@@ -999,8 +1001,8 @@ namespace uniq
 			log::warn("감지된 런치패드가 없습니다.");
 			return false;
 		}
-		auto midi_output_device_info = midi_output_device_info_list.empty() ? nullptr : &midi_output_device_info_list[0];
-		auto midi_input_device_info = midi_input_device_info_list.empty() ? nullptr : &midi_input_device_info_list[0];
+		const auto& midi_output_device_info = midi_output_device_info_list.empty() ? nullptr : &midi_output_device_info_list[0];
+		const auto& midi_input_device_info = midi_input_device_info_list.empty() ? nullptr : &midi_input_device_info_list[0];
 		const auto& _launchpad = launchpad::create(player_->device_manager_get(), midi_input_device_info, midi_output_device_info);
 		launchpad_connect(_launchpad);
 		return true;

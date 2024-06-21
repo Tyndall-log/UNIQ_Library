@@ -48,6 +48,7 @@ namespace uniq
 	
 	std::string launchpad::launchpad_kind_name_get(juce::MidiDeviceInfo& mdi)
 	{
+#if JUCE_WINDOWS
 		auto& identifier = mdi.identifier;
 		
 		if (!identifier.startsWith(R"(\\?\usb#)")) return "";
@@ -76,6 +77,26 @@ namespace uniq
 		
 		if (global_num != global) return ""; //중복 건너뛰기
 		return get<0>(it->second);
+#elif JUCE_ANDROID
+		const auto& identifier = mdi.identifier;
+		const auto& name = mdi.name;
+		if (!name.contains("Launchpad")) return "";
+		const auto it = android_launchpad_map.find(name.toStdString());
+		if (it == android_launchpad_map.end())
+		{
+			log::warn("지원되는 런치패드가 아닙니다. name: " + name.toStdString());
+			return ""; //지원되는 런치패드 아님.
+		}
+		return it->second;
+#else
+		auto& identifier = mdi.identifier;
+		auto& name = mdi.name;
+		if (name.contains("Launchpad"))
+		{
+			return name.toStdString();
+		}
+		return "";
+#endif
 	}
 
 	void launchpad::input_button_callback(const uint8_t* const data, const int size) const
@@ -478,7 +499,7 @@ namespace uniq
 		vector<midi_device_info> devices;
 		auto id_list = map<string, uint8_t>();
 		auto availableDevices = MidiInput::getAvailableDevices();
-		
+
 		for (auto& deviceInfo : availableDevices)
 		{
 			auto name = launchpad_kind_name_get(deviceInfo);
@@ -505,12 +526,12 @@ namespace uniq
 		return devices;
 	}
 	
-	string launchpad::input_identifier_get()
+	string launchpad::input_identifier_get() const
 	{
 		return input->getIdentifier().toStdString();
 	}
 	
-	string launchpad::output_identifier_get()
+	string launchpad::output_identifier_get() const
 	{
 		return output->getIdentifier().toStdString();
 	}
@@ -602,6 +623,16 @@ namespace uniq
 		{"1235" "0130", {"Novation Launchpad Pro MK3 14", 1_uc}},
 		{"1235" "0131", {"Novation Launchpad Pro MK3 15", 1_uc}},
 		{"1235" "0132", {"Novation Launchpad Pro MK3 16", 1_uc}},
+	};
+	map<string, string> const launchpad::android_launchpad_map = {
+		{"Focusrite - Novation Launchpad", "Novation Launchpad"},
+		{"Focusrite - Novation Launchpad S", "Novation Launchpad S"},
+		{"Focusrite - Novation Launchpad Mini", "Novation Launchpad Mini"},
+		{"Focusrite - Novation Launchpad Pro", "Novation Launchpad Pro"},
+		{"Focusrite - Novation Launchpad MK2", "Novation Launchpad MK2"},
+		{"Focusrite - Novation Launchpad X-2", "Novation Launchpad X"},
+		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
+		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
 	};
 	
 	unique_ptr<launchpad::LED_global_timer> launchpad::LED_timer = nullptr;

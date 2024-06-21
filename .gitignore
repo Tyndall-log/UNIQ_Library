@@ -1,0 +1,13 @@
+.idea
+.reuse
+.cache
+build
+cmake-build-*/
+module/juce/
+py_test/
+py_test/venv/
+py_test/.idea/
+.vs
+.editorconfig
+secret.h
+.DS_Store

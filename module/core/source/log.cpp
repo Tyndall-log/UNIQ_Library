@@ -3,6 +3,9 @@
 
 
 #include "log.h"
+#ifdef ANDROID
+#include <android/log.h>
+#endif
 
 using namespace std;
 

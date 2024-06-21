@@ -27,6 +27,7 @@ add_executable(UNIQ_Library_lightshow_test ${CONSOLE_TEST_FILES} ${SOURCE_FILES}
 target_include_directories(UNIQ_Library_lightshow_test PUBLIC header)  #실행 파일에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_lightshow_test)  #라이브러리 링크
 
-add_library(UNIQ_Library_lightshow ${SOURCE_FILES})  #라이브러리 생성
+add_library(UNIQ_Library_lightshow)  #라이브러리 생성
+target_sources(UNIQ_Library_lightshow INTERFACE ${SOURCE_FILES})  #라이브러리에 소스 파일을 추가합니다.
 target_include_directories(UNIQ_Library_lightshow PUBLIC header)  #라이브러리에 header 폴더를 포함합니다.
 link_library(UNIQ_Library_lightshow)  #라이브러리 링크
