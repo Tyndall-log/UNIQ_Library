@@ -436,7 +436,7 @@ namespace uniq
 
 	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
 	class message_thread
-#ifndef ANDROID
+#ifdef _WIN32
 		: public juce::Thread
 #endif
 	{
@@ -445,7 +445,7 @@ namespace uniq
 		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::mutex mutex_;
 		message_thread();
-#ifndef ANDROID
+#ifdef _WIN32
 		void run() override;
 #endif
 		template<typename Func, typename Promise>
@@ -469,9 +469,11 @@ namespace uniq
 			}
 		}
 	public:
-# ifndef ANDROID
+#ifdef _WIN32
 		~message_thread() override;
-# endif
+#else
+		~message_thread();
+#endif
 		message_thread(const message_thread&) = delete; //복사 생성자 삭제
 		message_thread(message_thread&&) = delete; //이동 생성자 삭제
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
@@ -565,7 +567,7 @@ namespace uniq
 
 		void wait_ready() const
 		{
-			ready_.wait(true);
+			ready_.wait(false);
 		}
 	};
 }

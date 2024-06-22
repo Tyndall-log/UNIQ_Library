@@ -88,7 +88,25 @@ namespace uniq
 			return ""; //지원되는 런치패드 아님.
 		}
 		return it->second;
+#elif JUCE_MAC
+		const auto& identifier = mdi.identifier;
+		const auto& name = mdi.name;
+		if (!name.contains("Launchpad")) return "";
+		if (name.contains("DAW")) return "";
+		// const auto it = macos_launchpad_map.find(name.toStdString());
+		auto it = std::ranges::find_if(macos_launchpad_list | views::reverse,
+			[&name](const auto& v)
+			{
+				return name.contains(get<0>(v));
+			});
+		if (it == macos_launchpad_list.rend())
+		{
+			log::warn("지원되는 런치패드가 아닙니다. name: " + name.toStdString());
+			return ""; //지원되는 런치패드 아님.
+		}
+		return get<1>(*it);
 #else
+		log::warn("알 수 없는 플랫폼입니다.(런치패드를 인식하지 못할 수 있음)");
 		auto& identifier = mdi.identifier;
 		auto& name = mdi.name;
 		if (name.contains("Launchpad"))
@@ -633,6 +651,16 @@ namespace uniq
 		{"Focusrite - Novation Launchpad X-2", "Novation Launchpad X"},
 		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
 		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
+	};
+	list<tuple<string, string>> const launchpad::macos_launchpad_list = {
+		{"Launchpad", "Novation Launchpad"},
+		{"Launchpad S", "Novation Launchpad S"},
+		{"Launchpad Mini", "Novation Launchpad Mini"},
+		{"Launchpad Pro", "Novation Launchpad Pro"},
+		{"Launchpad MK2", "Novation Launchpad MK2"},
+		{"Launchpad X", "Novation Launchpad X"},
+		{"Launchpad Mini MK3", "Novation Launchpad Mini MK3"},
+		{"Launchpad Pro MK3", "Novation Launchpad Pro MK3"},
 	};
 	
 	unique_ptr<launchpad::LED_global_timer> launchpad::LED_timer = nullptr;

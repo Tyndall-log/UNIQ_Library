@@ -512,7 +512,8 @@ namespace uniq
 					auto& group_callback = *it_start;
 					auto& group = group_callback->group;
 					log::info("group.cue: " + to_string(group->start_cue->cue_point.get().count()));
-					guide_group_deque_.emplace_back(group, false);
+					// guide_group_deque_.emplace_back(group, false);
+					guide_group_deque_.push_back({group, false});
 					auto x = group->button_x.get();
 					auto y = group->button_y.get();
 					// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
@@ -735,8 +736,8 @@ namespace uniq
 
 	uniq::~uniq()
 	{
-		launchpad_disconnect_all();
 		guide_timer_.stopTimer();
+		launchpad_disconnect_all();
 	}
 
 	void uniq::title_set(const string &title)

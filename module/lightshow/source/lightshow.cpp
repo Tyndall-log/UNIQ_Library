@@ -133,9 +133,11 @@ namespace uniq::lightshow
 		{
 			if (color.is_off()) return false;
 			grid_xy.erase(it);
-			grid_xy.emplace(time, color);
+			// grid_xy.emplace(time, color);
+			grid_xy.emplace(rgbav_pair{time, color});
 		}
-		else grid_xy.emplace_hint(it, time, color);
+		// else grid_xy.emplace_hint(it, time, color);
+		else grid_xy.emplace_hint(it, rgbav_pair{time, color});
 		return true;
 	}
 

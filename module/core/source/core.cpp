@@ -71,7 +71,7 @@ namespace uniq
 	}
 
 	message_thread::message_thread()
-#ifndef ANDROID
+#ifdef _WIN32
 	: Thread("UNIQ_MessageThread")
 
 	{
@@ -84,9 +84,17 @@ namespace uniq
 		mm_->runDispatchLoop();
 		log::info("message_thread start");
 	}
+
+	message_thread::~message_thread()
+	{
+		if (!mm_) return;
+		mm_->stopDispatchLoop();
+		mm_.reset();
+		log::info("message_thread stop");
+	}
 #endif
 
-#ifndef ANDROID
+#ifdef _WIN32
 	message_thread::~message_thread()
 	{
 		if (!mm_) return;

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: LGPL-3.0-linking-exception
 
 #include <filesystem>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 #include "main.h"
 #include "secret.h"
@@ -10,11 +13,27 @@ using namespace std;
 using namespace juce;
 using namespace uniq;
 
+std::filesystem::path get_current_path()
+{
+#ifdef __APPLE__
+	char path[PATH_MAX];
+	uint32_t size = PATH_MAX;
+	if (_NSGetExecutablePath(path, &size) != 0)
+	{
+		std::cerr << "경로가 너무 길어서 가져올 수 없습니다." << std::endl;
+		return "";
+	}
+	return std::filesystem::path(path).remove_filename();
+#else
+	return std::filesystem::current_path();
+#endif
+}
+
 int unipack_test1()
 {
 	cout << "unipack_test1" << endl;
 
-	const auto current_path = filesystem::current_path();
+	const auto current_path = get_current_path();
 	const set<string> extensions = {".zip", ".uni"};
 	string file = unipack_file_path::file1;
 	vector<string> files;

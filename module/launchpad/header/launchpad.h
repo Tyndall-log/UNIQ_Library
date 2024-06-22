@@ -21,6 +21,7 @@ namespace uniq
 		static std::unique_ptr<LED_global_timer> LED_timer;
 		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
 		static const std::map<std::string, std::string> android_launchpad_map;
+		static const std::list<std::tuple<std::string, std::string>> macos_launchpad_list;
 		static juce::SpinLock mutex;
 		
 		std::string midi_input_kind_name;

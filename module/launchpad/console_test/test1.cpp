@@ -12,12 +12,14 @@ int test1()
 	cout << "test1" << endl;
 	
 	system("chcp 65001"); //한글 설정
-	auto MMT = make_unique<MainMessageThread>(); //메시지 관리 스레드 시작
+	// auto MMT = make_unique<MainMessageThread>(); //메시지 관리 스레드 시작
+	auto MT = message_thread::get();
 	shared_ptr<AudioDeviceManager> ADM;
 	std::promise<shared_ptr<AudioDeviceManager>> adm_promise;
-	MessageManager::callAsync([&adm_promise]()
+	MT->call_async([&adm_promise]()
 	{
 		auto ADM = make_shared<AudioDeviceManager>();
+		log::info("AudioDeviceManager 생성");
 		adm_promise.set_value(ADM);
 	});
 	ADM = adm_promise.get_future().get();

@@ -182,7 +182,7 @@ namespace uniq
 		if (exclusive_try_lock(priority))
 			return;
 		const auto this_id = this_thread::get_id();
-		auto _qd = new qd(priority, this_id);
+		auto _qd = new qd{priority, this_id};
 		exclusive_queue_.push(_qd);
 		lock.unlock();
 		_qd->flag_.wait(false);
@@ -248,7 +248,7 @@ namespace uniq
 		if (shared_try_lock(priority))
 			return;
 		const auto this_id = this_thread::get_id();
-		auto _qd = new qd(priority, this_id);
+		auto _qd = new qd{priority, this_id};
 		shared_queue_.push(_qd);
 		lock.unlock();
 		_qd->flag_.wait(false);
