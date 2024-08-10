@@ -10,21 +10,21 @@ namespace uniq
 {
 
 #pragma region ID_manager
-	id_t ID_manager::id_ = 0;
+	id_t ID_manager::id_ = static_cast<id_t>(core::api::predefined_ID::last);
 	std::unordered_map<id_t, std::any> ID_manager::registry_;
-	SpinLock ID_manager::lock_;
+	spin_lock ID_manager::lock_;
 
 	id_t ID_manager::generate_ID()
 	{
-		SpinLock::ScopedLockType scoped_lock(lock_);
-		id_t id = ++id_;
+		std::unique_lock lock(lock_);
+		id_t id = id_++;
 		registry_.emplace(id, std::any());
 		return id;
 	}
 	
-	void ID_manager::unregister_ID(id_t id)
+	void ID_manager::unregister_ID(const id_t id)
 	{
-		SpinLock::ScopedLockType scoped_lock(lock_);
+		std::unique_lock lock(lock_);
 		registry_.erase(id);
 	}
 #pragma endregion ID_manager
@@ -38,7 +38,7 @@ namespace uniq
 //		{
 //			child->child_remove(this);
 //		}
-		for (auto& parent: parent_list_)
+		for (const auto& parent: parent_list_)
 		{
 			parent->child_remove(this);
 		}

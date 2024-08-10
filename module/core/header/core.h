@@ -15,11 +15,14 @@
 //#include <juce_audio_processors/juce_audio_processors.h>
 //#include <juce_gui_basics/components/juce_Component.h>
 
+#include "alias.h"
 #include "core.hpp"
 #include "lock.h"
 #include "log.h"
 #include "event.h"
 #include "hierarchy.h"
+#include "hash.h"
+#include "api.h"
 #include <thread>
 #include <string>
 #include <algorithm>
@@ -32,42 +35,38 @@
 #include <format>
 #include <mutex>
 #include <shared_mutex>
-
+#include <source_location>
 
 namespace uniq
 {
-#ifdef _WIN32
-#define API extern "C" __declspec(dllexport)
-#else
-#define API extern "C" __attribute__((visibility("default")))
-#endif
-
-	using id_t = std::size_t;
-
 	//ID_manager는 ID<T>를 상속받은 객체를 관리합니다.
 	class ID_manager final
 	{
 		template<typename T> friend class ID;
 		static std::unordered_map<id_t, std::any> registry_;
-		//static std::unordered_map<id_t, std::any> memory
-		static id_t id_; //0은 무효한 ID입니다.
-		static juce::SpinLock lock_;
-	private:
+		static id_t id_;
+		static spin_lock lock_;
+
+		struct callback_data
+		{
+			id_t id;
+		};
+
 		static id_t generate_ID();
 		template<typename T>
-		static void register_ID(id_t id, std::shared_ptr<T> obj)
+		static void register_ID(const id_t id, std::shared_ptr<T> obj)
 		{
-			juce::SpinLock::ScopedLockType scoped_lock(lock_);
+			std::unique_lock lock(lock_);
 			registry_[id] = std::weak_ptr<T>(obj);
 		}
 		static void unregister_ID(id_t id);
 	public:
 		template<typename T>
-		static std::optional<std::shared_ptr<T>> get_shared_ptr_by_ID(id_t id)
+		static std::optional<std::shared_ptr<T>> get_shared_ptr_by_ID(const id_t id)
 		{
-			juce::SpinLock::ScopedLockType scoped_lock(lock_);
+			std::unique_lock lock(lock_);
 			if (id == 0) return std::nullopt;
-			auto it = registry_.find(id);
+			const auto it = registry_.find(id);
 			if (it == registry_.end()) return std::nullopt;
 			if (auto& second = it->second; second.has_value())
 			{
@@ -78,7 +77,7 @@ namespace uniq
 			}
 			else
 			{
-				log::println("ID_manager::get_shared_ptr_by_ID: ID " + std::to_string(id) + " is not registered."
+				log::error("ID_manager::get_shared_ptr_by_ID: ID " + std::to_string(id) + " is not registered."
 							 + "Please check if the object is created by "+ typeid(T).name() + "::create().");
 				throw std::runtime_error("ID_manager::get_shared_ptr_by_ID: ID " + std::to_string(id) + " is not registered."
 										 + "Please check if the object is created by "+ typeid(T).name() + "::create().");
@@ -98,10 +97,14 @@ namespace uniq
 	private:
 		id_t id_ = 0; //0은 무효한 ID입니다.
 	protected:
-		ID() : id_(ID_manager::generate_ID()) {};
+		ID() : id_(ID_manager::generate_ID()) {}
 		~ID()
 		{
 			ID_manager::unregister_ID(id_);
+			#ifdef UNIQ_DLL_API
+			// ID를 상속받은 클래스가 소멸될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
+			core::api::callback_manager.add_destroy_ID(id_);
+			#endif
 		}
 	public:
 		template <typename... K>
@@ -116,6 +119,10 @@ namespace uniq
 			std::shared_ptr<T> sp = std::make_shared<make_shared_enabler>(std::forward<K>(args)...);
 			
 			ID_manager::register_ID(sp->id_, sp);
+			#ifdef UNIQ_DLL_API
+			// ID를 상속받은 클래스가 생성될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
+			core::api::callback_manager.add_create_ID(sp->id_);
+			#endif
 			return sp;
 		}
 	public:
@@ -128,7 +135,7 @@ namespace uniq
 			return id_;
 		}
 	};
-	
+
 	class hierarchy_legacy
 	{
 	private:
@@ -357,16 +364,16 @@ namespace uniq
 				*value_ = value;
 			}
 
-//			chain& operator=(const T& value)
-//			{
-//				value_ = value;
-//				return *this;
-//			}
-//
-//			operator T()
-//			{
-//				return *value_;
-//			}
+			// chain& operator=(const T& value)
+			// {
+			// 	value_ = value;
+			// 	return *this;
+			// }
+			//
+			// operator T()
+			// {
+			// 	return *value_;
+			// }
 		};
 	
 	public:

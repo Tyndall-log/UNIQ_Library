@@ -59,13 +59,17 @@ x86 아키텍처는 `-DANDROID_ABI=armeabi-v7a`로 설정합니다.
 [JUCE 7](https://juce.com/juce-7-license/)[^각주_JUCE]  
 c++20을 지원하는 컴파일러[^각주_컴파일러]
 
+- LLVM 17.0.6 권장
+  - Clang >= 16.0.0
+  - libc++ >= 17.0.0
+
 [^각주_JUCE]: JUCE v7.0.12 release [github](https://github.com/juce-framework/JUCE/releases/tag/7.0.12)
 [^각주_컴파일러]: MSVC v143(Visual Studio 2022) 및 x64-Clang에서 테스트 되었으며, 다른 컴파일러는 추가적인 설정과 인클루드가 필요할 수 있음.
 
 #### Android 빌드
 
 - NDK r27
-	- libc++ 18 이상
+	- libc++ >= 18.0.0
 	- std::chrono::duration operator<=>가 구현된 최초 버전 
 
 ### 대상

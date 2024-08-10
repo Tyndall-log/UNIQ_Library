@@ -98,10 +98,12 @@ namespace uniq
 		println_without_lock(s);
 	}
 
-	void log::error(const string_view str)
+	void log::error(const std::string_view str, const source_info_t &source_info)
 	{
 		lock_guard lock(sl);
 		string s = "[Error]: ";
+		s += source_info.data;
+		s += " ";
 		s += str;
 		println_without_lock(s);
 	}
@@ -111,7 +113,7 @@ namespace uniq
 		return make_unique<struct time>(name);
 	}
 
-	string & log::get()
+	string& log::get()
 	{
 		message_temp = message;
 		message.clear();

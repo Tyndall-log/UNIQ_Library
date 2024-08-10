@@ -5,25 +5,47 @@
 
 namespace uniq
 {
+
+	//컴파일러 감지
+	enum class compiler
+	{
+		unknown,
+		clang,
+		gcc,
+		msvc
+	};
+
+	inline extern constexpr compiler current_compiler = []() constexpr
+	{
+		#if defined(__clang__)
+		return compiler::clang;
+		#elif defined(__GNUC__)
+		return compiler::gcc;
+		#elif defined(_MSC_VER)
+		return compiler::msvc;
+		#else
+		return compiler::unknown;
+		#endif
+	}();
+
 	//사용자 정의 리터럴을 구현합니다.
-	inline consteval unsigned char operator "" _uc(unsigned long long arg) noexcept { return static_cast<unsigned char>(arg); }
+	consteval unsigned char operator "" _uc(const unsigned long long arg) noexcept { return static_cast<unsigned char>(arg); }
 	
 	template<size_t N>
 	struct hex_convert
 	{
-		juce::uint8 data[N] = {};
+		juce::uint8 data[N/2] = {};
 		
-		inline consteval hex_convert(const char(&s)[N], const char delim = '\'') noexcept
+		consteval hex_convert(const char(&s)[N], const char delim = '\'') noexcept
 		{
 			auto hex_char_to_uint8 = [](const char c) {
 				if (c >= '0' && c <= '9')
 					return static_cast<juce::uint8>(c - '0');
-				else if (c >= 'A' && c <= 'F')
+				if (c >= 'A' && c <= 'F')
 					return static_cast<juce::uint8>(c - 'A' + 10);
-				else if (c >= 'a' && c <= 'f')
+				if (c >= 'a' && c <= 'f')
 					return static_cast<juce::uint8>(c - 'a' + 10);
-				else
-					return static_cast<juce::uint8>(0);  // Unexpected character
+				return static_cast<juce::uint8>(0);  // Unexpected character
 			};
 			
 			juce::uint8 tmp = 0;
@@ -50,7 +72,7 @@ namespace uniq
 	};
 	
 	template<hex_convert HC>
-	inline consteval auto operator "" _hex() noexcept
+	consteval auto operator "" _hex() noexcept
 	{
 		return HC.data;
 	}

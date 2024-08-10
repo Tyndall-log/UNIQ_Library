@@ -743,11 +743,13 @@ namespace uniq
 	void uniq::title_set(const string &title)
 	{
 		title_ = title;
+		core::api::callback_manager.RAC(ID_get(), title);
 	}
 
 	void uniq::producer_name_set(const string &producer_name)
 	{
 		producer_name_ = producer_name;
+		core::api::callback_manager.RAC(ID_get(), producer_name);
 	}
 
 	std::shared_ptr<audio_player> uniq::player_get() const
@@ -762,7 +764,8 @@ namespace uniq
 	auto uniq::internal::audio_load(unique_ptr<InputStream> input_stream, const string &extension,
 	                                const string &path, const string &name) const -> shared_ptr<audio_source>
 	{
-		auto audio_source = audio_source::internal::audio_load(std::move(input_stream), extension, path, name);
+		auto audio_source =
+			audio_source::internal::audio_load(std::move(input_stream), extension, path, name);
 		if (!audio_source)
 		{
 			log::warn("\"" + name + "\" 오디오 로드 실패");
@@ -794,6 +797,7 @@ namespace uniq
 		}
 		auto timeline_ = timeline::create(name);
 		timeline_list_.push_back(timeline_);
+		core::api::callback_manager.RAC(ID_get(), timeline_->ID_get());
 		return timeline_;
 	}
 
@@ -863,6 +867,7 @@ namespace uniq
 	{
 		auto timeline_page_ = timeline_page::create(cue);
 		timeline_page_add(timeline_page_);
+		core::api::callback_manager.RAC(ID_get(), timeline_page_->ID_get());
 		return timeline_page_;
 	}
 

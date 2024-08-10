@@ -527,10 +527,9 @@ namespace uniq::unipack
 
 			//keyLED 폴더 읽기
 			vector<keyled_info> keyled_grid[8][8][8]; //chain, x, y
-			while(uniq)
+			if(uniq)
 			{
 				keyled_part(zip, zip_list, root_path, keyled_grid);
-				break;
 			}
 
 			//autoPlay 파일 읽기

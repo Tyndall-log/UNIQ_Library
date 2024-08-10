@@ -544,7 +544,7 @@ namespace uniq::internal
 
 	void audio_custom_source::prepareToPlay(const int samplesPerBlockExpected, const double sampleRate)
 	{
-		log::info("audio_custom_source::prepareToPlay");
+		// log::info("audio_custom_source::prepareToPlay");
 		unique_lock lock(sl_);
 		sample_rate_ = sampleRate;
 		samples_per_block_expected_ = samplesPerBlockExpected;
@@ -563,7 +563,7 @@ namespace uniq::internal
 
 	void audio_custom_source::releaseResources()
 	{
-		log::info("audio_custom_source::releaseResources");
+		// log::info("audio_custom_source::releaseResources");
 		unique_lock lock(sl_);
 		next_sample_position_ = 0;
 		sync_data_map_.clear();

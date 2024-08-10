@@ -8,6 +8,10 @@ set(CMAKE_CXX_STANDARD 20)  #c++20 표준 사용
 
 # 포함할 소스 파일을 찾습니다.
 file(GLOB_RECURSE SOURCE_FILES source/*.cpp)  #source 폴더 내의 모든 cpp 파일을 찾습니다.
+if(UNIQ_DLL_API)  #UNIQ_DLL_API가 설정되어 있다면
+	file(GLOB_RECURSE API_FILES api/*.cpp)
+	list(APPEND SOURCE_FILES ${API_FILES})
+endif()
 foreach(FILE ${SOURCE_FILES})
 	string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}" "" RELATIVE_FILE ${FILE})
 	message(STATUS "Modified SOURCE_FILE: ${RELATIVE_FILE}")

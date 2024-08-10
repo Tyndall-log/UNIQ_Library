@@ -3,6 +3,8 @@
 
 #include "unipack.h"
 
+#ifdef UNIQ_DLL_API
+
 using namespace std;
 using namespace uniq;
 using namespace juce;
@@ -67,16 +69,16 @@ API void test()
 	if (main_uniq) main_uniq->launchpad_connect(main_launchpad);
 }
 
-API ::uniq::id_t unipack_load(const char* zip_file_path)
-{
-	log::println("unipack_load("s + zip_file_path + ")");
-	main_uniq = unipack::unipack::load(zip_file_path);
-	// if (main_launchpad)
-	// 	main_uniq->launchpad_connect(main_launchpad);
-	// else
-	// 	main_uniq->launchpad_auto_connect();
-	return main_uniq->ID_get();
-}
+// API ::uniq::id_t unipack_load(const char* zip_file_path)
+// {
+// 	log::println("unipack_load("s + zip_file_path + ")");
+// 	main_uniq = unipack::unipack::load(zip_file_path);
+// 	// if (main_launchpad)
+// 	// 	main_uniq->launchpad_connect(main_launchpad);
+// 	// else
+// 	// 	main_uniq->launchpad_auto_connect();
+// 	return main_uniq->ID_get();
+// }
 
 
 // #if defined(ANDROID)
@@ -92,3 +94,5 @@ API ::uniq::id_t unipack_load(const char* zip_file_path)
 // 	return JNI_VERSION_1_6;
 // }
 // #endif
+
+#endif

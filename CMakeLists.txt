@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD 20)  #c++20 표준 사용
 # message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 # message(STATUS "CMAKE_EXPORT_COMPILE_COMMANDS: ${CMAKE_EXPORT_COMPILE_COMMANDS}")
 set(UNIQ_INCOMPATIBLE_LICENSE_BAN OFF)  #LGPL-3.0-linking-exception 라이선스와 호환되지 않는 라이선스 사용 금지
+option(UNIQ_DLL_API "Enable exporting of UNIQ project DLL API functions" ON)  # UNIQ 프로젝트 DLL API 함수 내보내기 활성화
 
 # ---------- JUCE 라이브러리 다운로드 및 빌드 ----------
 if (NOT DEFINED JUCE_VERSION)
@@ -88,6 +89,11 @@ if (NOT DEFINED JUCE_VERSION)
 endif()
 # ---------- JUCE 라이브러리 다운로드 및 빌드 끝 ----------
 
+add_compile_definitions(JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
+if (UNIQ_DLL_API)
+	add_compile_definitions(UNIQ_DLL_API=1)
+endif()
+
 add_subdirectory(module/core)  #core 모듈 추가
 add_subdirectory(module/launchpad)  #launchpad 모듈 추가
 add_subdirectory(module/lightshow)  #audio 모듈 추가
@@ -96,20 +102,8 @@ add_subdirectory(module/uniq)  #uniq 모듈 추가
 add_subdirectory(module/unipack)  #unipack 모듈 추가
 add_subdirectory(module/workspace)  #workspace 모듈 추가
 
-add_compile_definitions(JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
 #include_directories(${juce_SOURCE_DIR}/modules)
 #include_directories(JuceLibraryCode)
-
-#function(link_library target)  #라이브러리 링크 함수
-#	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
-#	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad)
-#	target_link_libraries(${target} PRIVATE juce::juce_core)
-#	target_link_libraries(${target} PRIVATE juce::juce_audio_devices)
-#	if (ANDROID)
-#		target_link_libraries(${target} PRIVATE oboe)
-#		target_link_libraries(${target} PRIVATE cpufeatures)
-#	endif()
-#endfunction()
 
 function(link_library target)  #라이브러리 링크 함수
 	target_link_libraries(${target} PRIVATE juce::juce_core)
@@ -130,17 +124,3 @@ endfunction()
 
 add_library(UNIQ_Library SHARED)  #라이브러리 생성
 link_library(UNIQ_Library)  #라이브러리 링크
-
-#function(link_library target)
-#	target_link_libraries(${target} PRIVATE juce::juce_core)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/core/libUNIQ_Library_core.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/audio/libUNIQ_Library_audio.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/lightshow/libUNIQ_Library_lightshow.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/launchpad/libUNIQ_Library_launchpad.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/uniq/libUNIQ_Library_uniq.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/unipack/libUNIQ_Library_unipack.a)
-#	target_link_libraries(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/module/workspace/libUNIQ_Library_workspace.a)
-#endfunction()
-#
-#add_library(UNIQ_Library SHARED)  # dummy.cpp는 빈 소스 파일로 사용
-#link_library(UNIQ_Library)

@@ -10,7 +10,7 @@ using namespace uniq;
 int workspace_test1()
 {
 	cout << "workspace_test1" << endl;
-	::uniq::uniq::create();
+	auto project = ::uniq::uniq::create();
 	int a;
 	auto player = audio_player::create();
 	// auto as = audio_source::audio_load(audio_file_path.file2);
@@ -18,5 +18,8 @@ int workspace_test1()
 	// as->play(player);
 	cin >> a;
 	cout << "workspace_test1 끝" << endl;
+	static auto offset =
+			reinterpret_cast<uintptr_t>(&reinterpret_cast<core::api::API_callback_message_base*>(0)->api_workspace_id);
+	cout << "offset: " << offset << endl;
 	return 0;
 }

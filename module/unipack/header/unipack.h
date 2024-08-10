@@ -55,7 +55,7 @@ namespace uniq::unipack
 			-> bool;
 	public:
 
-		static auto load(const std::string &zip_path) -> std::shared_ptr<uniq>;
+		static auto load(const std::string& zip_path) -> std::shared_ptr<uniq>;
 		static bool save(const std::string& path, const std::shared_ptr<uniq>& unipack);
 	};
 }
