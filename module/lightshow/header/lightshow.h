@@ -88,7 +88,7 @@ namespace uniq::lightshow
 		[[nodiscard]] auto height_get() const -> std::uint8_t;
 	};
 
-	class lightshow_data : public ID<lightshow_data>
+	class lightshow_data : public core::ID<lightshow_data>
 	{
 		using sequence_time_t = rgbav_sequence_grid::sequence_time_t;
 		sequence_time_t start_time_;
@@ -109,7 +109,7 @@ namespace uniq::lightshow
 		[[nodiscard]] auto repeat_get() const -> uint8_t;
 	};
 
-	class lightshow_sequence : public ID<lightshow_sequence>
+	class lightshow_sequence : public core::ID<lightshow_sequence>
 	{
 		using sequence_time_t = rgbav_sequence_grid::sequence_time_t;
 		sequence_time_t start_time_;
@@ -123,7 +123,7 @@ namespace uniq::lightshow
 		[[nodiscard]] auto sequence_time_get() const -> sequence_time_t;
 	};
 
-	class lightshow_layer : public ID<lightshow_layer>
+	class lightshow_layer : public core::ID<lightshow_layer>
 	{
 		using sequence_time_t = rgbav_sequence_grid::sequence_time_t;
 		std::string layer_name_;
@@ -133,7 +133,7 @@ namespace uniq::lightshow
 		[[nodiscard]] auto name_get() const -> std::string;
 	};
 
-	class lightshow : public ID<lightshow>
+	class lightshow : public core::ID<lightshow>
 	{
 	public:
 		using sequence_time_t = rgbav_sequence_grid::sequence_time_t;

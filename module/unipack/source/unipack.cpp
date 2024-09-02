@@ -5,6 +5,8 @@
 
 using namespace std;
 using namespace juce;
+using namespace uniq::project;
+
 
 namespace uniq::unipack
 {
@@ -323,7 +325,7 @@ namespace uniq::unipack
 		return true;
 	}
 
-	auto unipack::load(const string &zip_path) -> std::shared_ptr<uniq>
+	auto unipack::load(const string &zip_path) -> std::shared_ptr<project::project>
 	{
 		const File file(zip_path);
 		if (!file.existsAsFile())
@@ -442,7 +444,7 @@ namespace uniq::unipack
 			const String root_path = root_path_list[0];
 
 			//info 파일 읽기
-			shared_ptr<uniq> uniq;
+			shared_ptr<project::project> uniq;
 			{
 				const auto info_iter = find_iter(zip_list, root_path, "info");
 				if (info_iter == zip_list.end())
@@ -457,7 +459,7 @@ namespace uniq::unipack
 					return nullptr;
 				}
 				// log::info(info_stream->readEntireStreamAsString().replace("\r","").toStdString());
-				uniq = uniq::create();
+				uniq = project::project::create();
 				bom_skip(*info_stream);
 				while(!info_stream->isExhausted())
 				{
@@ -552,7 +554,7 @@ namespace uniq::unipack
 				timeline_list.emplace_back(uniq->timeline_create("autoPlay"));
 				auto main_timeline = timeline_list.back();
 				// log::info(autoPlay_stream->readEntireStreamAsString().replace("\r","").toStdString());
-				uniq::cue_point_t cumulative_delay{0};
+				project::project::cue_point_t cumulative_delay{0};
 				auto current_chain_num = 0;
 				auto chain_delay = 0us;
 				uint16_t press_count[8][8] = {};
@@ -759,7 +761,7 @@ namespace uniq::unipack
 		return nullptr;
 	}
 
-	bool unipack::save(const std::string &path, const std::shared_ptr<uniq> &unipack)
+	bool unipack::save(const std::string &path, const std::shared_ptr<project::project> &unipack)
 	{
 		//TODO: unipack::save 구현
 		return false;

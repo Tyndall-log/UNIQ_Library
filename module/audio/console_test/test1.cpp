@@ -14,6 +14,7 @@
 using namespace std;
 // using namespace juce;
 using namespace uniq;
+using namespace core;
 
 namespace test_ns1
 {

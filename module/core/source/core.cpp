@@ -8,27 +8,6 @@ using namespace juce;
 
 namespace uniq
 {
-
-#pragma region ID_manager
-	id_t ID_manager::id_ = static_cast<id_t>(core::api::predefined_ID::last);
-	std::unordered_map<id_t, std::any> ID_manager::registry_;
-	spin_lock ID_manager::lock_;
-
-	id_t ID_manager::generate_ID()
-	{
-		std::unique_lock lock(lock_);
-		id_t id = id_++;
-		registry_.emplace(id, std::any());
-		return id;
-	}
-	
-	void ID_manager::unregister_ID(const id_t id)
-	{
-		std::unique_lock lock(lock_);
-		registry_.erase(id);
-	}
-#pragma endregion ID_manager
-
 #pragma region hierarchy
 	id_t hierarchy_legacy::relationship_id_ = 0;
 	
@@ -70,31 +49,14 @@ namespace uniq
 		mm->runDispatchLoop();
 	}
 
-	message_thread::message_thread()
-#ifdef _WIN32
-	: Thread("UNIQ_MessageThread")
-
+	message_thread::message_thread() : Thread("UNIQ_MessageThread")
 	{
 		startThread();
+		// mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
+		// mm_->runDispatchLoop();
 		log::info(wait(1000) ? "message_thread start" : "message_thread fail");
 	}
-#else
-	{
-		mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
-		mm_->runDispatchLoop();
-		log::info("message_thread start");
-	}
 
-	message_thread::~message_thread()
-	{
-		if (!mm_) return;
-		mm_->stopDispatchLoop();
-		mm_.reset();
-		log::info("message_thread stop");
-	}
-#endif
-
-#ifdef _WIN32
 	message_thread::~message_thread()
 	{
 		if (!mm_) return;
@@ -105,14 +67,33 @@ namespace uniq
 
 	void message_thread::run()
 	{
+#if defined(ANDROID)
+		const auto env = getEnv();
+		if (!env)
+		{
+			log::error("getEnv() failed");
+			return;
+		}
+		jclass looperClass = env->FindClass("android/os/Looper");
+		jmethodID prepareMethod = env->GetStaticMethodID(looperClass, "prepare", "()V");
+		jmethodID loopMethod = env->GetStaticMethodID(looperClass, "loop", "()V");
+		env->CallStaticVoidMethod(looperClass, prepareMethod);
+		jclass handlerClass = env->FindClass("android/os/Handler");
+		jmethodID handlerConstructor = env->GetMethodID(handlerClass, "<init>", "(Landroid/os/Looper;)V");
+		jobject handler = env->NewObject(handlerClass, handlerConstructor, env->CallStaticObjectMethod(looperClass, env->GetStaticMethodID(looperClass, "myLooper", "()Landroid/os/Looper;")));
+#endif
 		mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
 		notify(); // 메시지 스레드가 시작되었음을 알림
+#if defined(ANDROID)
+		env->CallStaticVoidMethod(looperClass, loopMethod);
+		env->DeleteLocalRef(handler);
+#else
 		mm_->runDispatchLoop();
-		notify(); // 메시지 스레드가 종료되었음을 알림
-		mm_.reset();
-		DeletedAtShutdown::deleteAll();
-	}
 #endif
+		// mm_.reset();
+		// notify(); // 메시지 스레드가 종료되었음을 알림
+		// DeletedAtShutdown::deleteAll();
+	}
 
 	shared_ptr<message_thread> message_thread::get()
 	{

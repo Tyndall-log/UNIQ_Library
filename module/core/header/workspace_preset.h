@@ -7,6 +7,7 @@
 #include <source_location>
 
 #include "alias.h"
+#include "log.h"
 
 namespace uniq::core::workspace_preset
 {
@@ -23,7 +24,7 @@ namespace uniq::core::workspace_preset
 
 	public:
 
-		void set(id_t id, std::source_location location = std::source_location::current());
+		void set(id_t id, const log::slm_t &location = log::slm_t{});
 
 		void reset();
 

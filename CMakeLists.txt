@@ -1,10 +1,37 @@
 # SPDX-FileCopyrightText: © 2023 Kim Eun-su <eunsu0402@gmail.com>
 # SPDX-License-Identifier: LGPL-3.0-linking-exception
 
-cmake_minimum_required(VERSION 3.26)  #cmake 최소 버전 설정
-project(UNIQ_library)  #프로젝트 이름 설정
+cmake_minimum_required(VERSION 3.26)
+project(UNIQ_library)
 
-set(CMAKE_CXX_STANDARD 20)  #c++20 표준 사용
+if(NOT (cxx_std_20 IN_LIST CMAKE_CXX_COMPILE_FEATURES))
+	message(FATAL_ERROR "C++20 is not supported by the current compiler.")
+endif()
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)  #c++20 표준 필수 사용
+
+set(keys "Clang" "AppleClang" "GNU" "MSVC")
+set(versions "16.0" "16.0" "11.0" "19.29")
+list(FIND keys "${CMAKE_CXX_COMPILER_ID}" index)
+
+if (index EQUAL -1)
+	message(WARNING "Build may fail with an unknown compiler. Please check if the compiler is supported.")
+	message(WARNING "Unknown compiler: ${CMAKE_CXX_COMPILER_ID}")
+else()
+	list(GET versions ${index} required_version)
+	list(GET keys ${index} compiler_name)
+
+	if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS ${required_version})
+		message(FATAL_ERROR "${compiler_name} version ${required_version} or higher is required. Detected version: ${CMAKE_CXX_COMPILER_VERSION}")
+	else()
+		message(STATUS "${compiler_name} version ${CMAKE_CXX_COMPILER_VERSION} is being used.")
+	endif()
+
+	# TODO:clang libc++ 버전 추가 검사
+	if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	endif ()
+endif()
 
 # message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 # message(STATUS "CMAKE_EXPORT_COMPILE_COMMANDS: ${CMAKE_EXPORT_COMPILE_COMMANDS}")
@@ -98,27 +125,28 @@ add_subdirectory(module/core)  #core 모듈 추가
 add_subdirectory(module/launchpad)  #launchpad 모듈 추가
 add_subdirectory(module/lightshow)  #audio 모듈 추가
 add_subdirectory(module/audio)  #audio 모듈 추가
-add_subdirectory(module/uniq)  #uniq 모듈 추가
+add_subdirectory(module/project)  #uniq 모듈 추가
 add_subdirectory(module/unipack)  #unipack 모듈 추가
 add_subdirectory(module/workspace)  #workspace 모듈 추가
+add_subdirectory(module/api)  #api 모듈 추가
 
 #include_directories(${juce_SOURCE_DIR}/modules)
 #include_directories(JuceLibraryCode)
 
 function(link_library target)  #라이브러리 링크 함수
-	target_link_libraries(${target} PRIVATE juce::juce_core)
-	target_link_libraries(${target} PRIVATE juce::juce_audio_devices)
-	target_link_libraries(${target} PRIVATE juce::juce_events)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_core)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_audio)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_uniq)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_unipack)
-	target_link_libraries(${target} PRIVATE UNIQ_Library_workspace)
 	if (ANDROID)
 		target_link_libraries(${target} PRIVATE oboe)
 		target_link_libraries(${target} PRIVATE cpufeatures)
+	endif()
+	target_link_libraries(${target} PRIVATE UNIQ_Library_core_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_audio_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_lightshow_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_launchpad_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_project_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_unipack_interface)
+	target_link_libraries(${target} PRIVATE UNIQ_Library_workspace_interface)
+	if (UNIQ_DLL_API)
+		target_link_libraries(${target} PRIVATE UNIQ_Library_api_interface)
 	endif()
 endfunction()
 

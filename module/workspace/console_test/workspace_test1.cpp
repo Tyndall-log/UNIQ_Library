@@ -10,7 +10,7 @@ using namespace uniq;
 int workspace_test1()
 {
 	cout << "workspace_test1" << endl;
-	auto project = ::uniq::uniq::create();
+	auto project = ::uniq::project::create();
 	int a;
 	auto player = audio_player::create();
 	// auto as = audio_source::audio_load(audio_file_path.file2);

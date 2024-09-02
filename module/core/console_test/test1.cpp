@@ -8,6 +8,7 @@
 using namespace std;
 using namespace juce;
 using namespace uniq;
+using namespace core;
 
 class A : public ID<A>
 {
@@ -76,19 +77,19 @@ int test1()
 	std::cout << "sizeof(a): " << sizeof(a) << "\n";
 	std::cout << "sizeof(b): " << sizeof(b) << "\n";
 	
-	auto a_from_ID = ID_manager::get_shared_ptr_by_ID<A>(a->ID_get()).value_or(nullptr);
+	auto a_from_ID = ID_manager::get_shared_ptr<A>(a->ID_get()).value_or(nullptr);
 	if (a_from_ID)
 	{
 		std::cout << "ID " << a->ID_get() << ": " << a_from_ID->get_name() << "\n";
 	}
 	
-	auto b_from_ID = ID_manager::get_shared_ptr_by_ID<B>(b->ID_get()).value_or(nullptr);
+	auto b_from_ID = ID_manager::get_shared_ptr<B>(b->ID_get()).value_or(nullptr);
 	if (b_from_ID)
 	{
 		std::cout << "ID " << b->ID_get() << ": " << b_from_ID->get_name() << "\n";
 	}
-	
-	auto test = ID_manager::get_shared_ptr_by_ID<B>(a->ID_get()).value_or(nullptr);
+
+	auto test = ID_manager::get_shared_ptr<B>(a->ID_get()).value_or(nullptr);
 	if (test)
 	{
 		std::cout << "ID " << a->ID_get() << ": " << test->get_name() << "\n";
@@ -99,7 +100,7 @@ int test1()
 	}
 	
 	auto id_2 = 5;
-	auto test2 = ID_manager::get_shared_ptr_by_ID<A>(id_2).value_or(nullptr);
+	auto test2 = ID_manager::get_shared_ptr<A>(id_2).value_or(nullptr);
 	if (test)
 	{
 		std::cout << "ID " << id_2 << ": " << test->get_name() << "\n";

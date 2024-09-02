@@ -10,7 +10,7 @@
 
 namespace uniq
 {
-	class launchpad : public ID<launchpad>
+	class launchpad : public core::ID<launchpad>
 	{
 	private:
 		class midi_callback;

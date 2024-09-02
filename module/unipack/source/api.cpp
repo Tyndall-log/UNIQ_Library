@@ -11,7 +11,7 @@ using namespace juce;
 
 static shared_ptr<audio_device_manager> main_audio_device_manager;
 static shared_ptr<launchpad> main_launchpad;
-static shared_ptr<::uniq::uniq> main_uniq;
+static shared_ptr<project::project> main_uniq;
 API void test()
 {
 	main_launchpad.reset();

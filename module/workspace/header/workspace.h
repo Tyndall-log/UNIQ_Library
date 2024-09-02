@@ -6,20 +6,20 @@
 #include "core.h"
 #include "audio.h"
 #include "launchpad.h"
-#include "uniq.h"
+#include "project.h"
 #include "unipack.h"
 
 namespace uniq::workspace
 {
-	class workspace : public ID<workspace>
+	class workspace : public core::ID<workspace>
 	{
 		std::string name;
-		std::vector<std::shared_ptr<uniq>> uniq_list;
+		std::vector<std::shared_ptr<project::project>> uniq_list;
 	public:
 
-		void uniq_add(const std::shared_ptr<uniq>& uniq);
-		bool uniq_remove(const std::shared_ptr<uniq>& uniq);
-		[[nodiscard]] std::vector<std::shared_ptr<uniq>> uniq_list_get() const;
+		void uniq_add(const std::shared_ptr<project::project>& uniq);
+		bool uniq_remove(const std::shared_ptr<project::project>& uniq);
+		[[nodiscard]] std::vector<std::shared_ptr<project::project>> uniq_list_get() const;
 		void name_set(const std::string& name);
 		[[nodiscard]] std::string name_get() const;
 	};

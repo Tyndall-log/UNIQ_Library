@@ -12,12 +12,12 @@ spin_lock workspace_list_lock;
 
 namespace uniq::workspace
 {
-	void workspace::uniq_add(const std::shared_ptr<uniq> &uniq)
+	void workspace::uniq_add(const std::shared_ptr<project::project> &uniq)
 	{
 		uniq_list.push_back(uniq);
 	}
 
-	bool workspace::uniq_remove(const std::shared_ptr<uniq> &uniq)
+	bool workspace::uniq_remove(const std::shared_ptr<project::project> &uniq)
 	{
 		const auto it = std::ranges::find(uniq_list, uniq);
 		if (it == uniq_list.end()) return false;
@@ -25,7 +25,7 @@ namespace uniq::workspace
 		return true;
 	}
 
-	std::vector<std::shared_ptr<uniq>> workspace::uniq_list_get() const
+	std::vector<std::shared_ptr<project::project>> workspace::uniq_list_get() const
 	{
 		return uniq_list;
 	}

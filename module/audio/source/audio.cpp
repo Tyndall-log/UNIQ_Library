@@ -1026,6 +1026,7 @@ namespace uniq::internal
 
 namespace uniq
 {
+	using namespace core;
 #pragma endregion audio_custom_source
 
 	audio_player::audio_player() : audio_player(audio_device_manager::create()) {}
@@ -1243,7 +1244,7 @@ namespace uniq
 		auto cue_end = *cue_point_it;
 		auto cue_start = *--cue_point_it;
 
-		auto self = ID_manager::get_shared_ptr_by_ID<audio_source>(ID_get()).value();
+		auto self = ID_manager::get_shared_ptr<audio_source>(ID_get()).value();
 		auto segment = audio_segment::create(self, cue_start, cue_end);
 		segment_start_set_.emplace(segment);
 		return segment;
@@ -1279,7 +1280,7 @@ namespace uniq
 		};
 		for (const auto& id : fade_out_target_set_)
 		{
-			const auto& aso = ID_manager::get_shared_ptr_by_ID<audio_segment>(id);
+			const auto& aso = ID_manager::get_shared_ptr<audio_segment>(id);
 			if (!aso)
 			{
 				log::error("fade_out_target_list_에 존재하지 않는 id가 있습니다.");

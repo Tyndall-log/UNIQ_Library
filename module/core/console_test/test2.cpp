@@ -33,6 +33,8 @@ using namespace ns_test2;
 int test2()
 {
 	//메모: decltype: 타입 추론
+
+	log::info(String("test2").toStdString());
 	
 	auto tca_1 = make_shared<test_class_a>();
 	auto tca_2 = make_shared<test_class_a>();

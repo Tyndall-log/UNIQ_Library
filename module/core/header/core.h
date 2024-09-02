@@ -20,9 +20,9 @@
 #include "lock.h"
 #include "log.h"
 #include "event.h"
+#include "id.h"
 #include "hierarchy.h"
 #include "hash.h"
-#include "api.h"
 #include <thread>
 #include <string>
 #include <algorithm>
@@ -39,103 +39,6 @@
 
 namespace uniq
 {
-	//ID_manager는 ID<T>를 상속받은 객체를 관리합니다.
-	class ID_manager final
-	{
-		template<typename T> friend class ID;
-		static std::unordered_map<id_t, std::any> registry_;
-		static id_t id_;
-		static spin_lock lock_;
-
-		struct callback_data
-		{
-			id_t id;
-		};
-
-		static id_t generate_ID();
-		template<typename T>
-		static void register_ID(const id_t id, std::shared_ptr<T> obj)
-		{
-			std::unique_lock lock(lock_);
-			registry_[id] = std::weak_ptr<T>(obj);
-		}
-		static void unregister_ID(id_t id);
-	public:
-		template<typename T>
-		static std::optional<std::shared_ptr<T>> get_shared_ptr_by_ID(const id_t id)
-		{
-			std::unique_lock lock(lock_);
-			if (id == 0) return std::nullopt;
-			const auto it = registry_.find(id);
-			if (it == registry_.end()) return std::nullopt;
-			if (auto& second = it->second; second.has_value())
-			{
-				if (second.type() == typeid(std::weak_ptr<T>)) //bad_any_cast 방지
-				{
-					return std::any_cast<std::weak_ptr<T>>(second).lock();
-				}
-			}
-			else
-			{
-				log::error("ID_manager::get_shared_ptr_by_ID: ID " + std::to_string(id) + " is not registered."
-							 + "Please check if the object is created by "+ typeid(T).name() + "::create().");
-				throw std::runtime_error("ID_manager::get_shared_ptr_by_ID: ID " + std::to_string(id) + " is not registered."
-										 + "Please check if the object is created by "+ typeid(T).name() + "::create().");
-			}
-			return std::nullopt;
-		}
-	};
-
-	//public ID<T> 상속을 통해 ID_manager에 ID를 생성하고 등록하는 클래스를 만듭니다.
-	//부여 받은 ID는 ID_manager를 통해 해당 객체를 참조할 수 있습니다.
-	//해당 클래스는 shared_ptr를 위해 ID<T>::create()를 통해 객체를 생성하도록 강제하므로,
-	//객체가 임의로 생성되지 않도록 생성자를 private로 선언하는 것을 권장합니다.
-	template<typename T> class ID
-	{
-	public:
-		//TODO: create()를 경유하지 않은 객체를 생성할 수 없게 함.
-	private:
-		id_t id_ = 0; //0은 무효한 ID입니다.
-	protected:
-		ID() : id_(ID_manager::generate_ID()) {}
-		~ID()
-		{
-			ID_manager::unregister_ID(id_);
-			#ifdef UNIQ_DLL_API
-			// ID를 상속받은 클래스가 소멸될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
-			core::api::callback_manager.add_destroy_ID(id_);
-			#endif
-		}
-	public:
-		template <typename... K>
-		static std::shared_ptr<T> create(K &&...args)
-		{
-			//make_shared에 프라이빗 생성자를 사용하기 위한 구조체
-			//컴파일 최적화로 MakeSharedEnabler의 오버 헤드는 없음.
-			struct make_shared_enabler : T
-			{
-				explicit make_shared_enabler(K &&...args) : T(std::forward<K>(args)...) {}
-			};
-			std::shared_ptr<T> sp = std::make_shared<make_shared_enabler>(std::forward<K>(args)...);
-			
-			ID_manager::register_ID(sp->id_, sp);
-			#ifdef UNIQ_DLL_API
-			// ID를 상속받은 클래스가 생성될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
-			core::api::callback_manager.add_create_ID(sp->id_);
-			#endif
-			return sp;
-		}
-	public:
-		ID(const ID&) = delete;
-		ID& operator=(const ID&) = delete;
-		ID(ID&&) = delete;
-		ID& operator=(ID&&) = delete;
-		[[nodiscard]] id_t ID_get() const
-		{
-			return id_;
-		}
-	};
-
 	class hierarchy_legacy
 	{
 	private:
@@ -443,18 +346,14 @@ namespace uniq
 
 	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
 	class message_thread
-#ifdef _WIN32
 		: public juce::Thread
-#endif
 	{
 		inline static std::unique_ptr<juce::MessageManager> mm_ = nullptr;
 		inline static std::shared_ptr<message_thread> instance_ = nullptr;
 		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::mutex mutex_;
 		message_thread();
-#ifdef _WIN32
 		void run() override;
-#endif
 		template<typename Func, typename Promise>
 		static void execute_and_set(Func &f, Promise &promise)
 		{
@@ -476,11 +375,7 @@ namespace uniq
 			}
 		}
 	public:
-#ifdef _WIN32
 		~message_thread() override;
-#else
-		~message_thread();
-#endif
 		message_thread(const message_thread&) = delete; //복사 생성자 삭제
 		message_thread(message_thread&&) = delete; //이동 생성자 삭제
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
@@ -537,7 +432,7 @@ namespace uniq
 		[[nodiscard]] static std::shared_ptr<mutex_test> get();
 	};
 
-	class audio_device_manager : public ID<audio_device_manager>
+	class audio_device_manager : public core::ID<audio_device_manager>
 	{
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
 		std::shared_ptr<juce::AudioDeviceManager> device_manager_;
@@ -545,7 +440,6 @@ namespace uniq
 	protected:
 		audio_device_manager()
 		{
-			// log::println("audio_device_manager 생성자");
 			const auto future = mt_->call_async([this] {
 				log::info("AudioDeviceManager 초기화 중...");
 				device_manager_ = std::make_unique<juce::AudioDeviceManager>();

@@ -6,7 +6,7 @@
 #include "core.h"
 #include "audio.h"
 #include "launchpad.h"
-#include "uniq.h"
+#include "project.h"
 #include "lightshow.h"
 
 #include <juce_core/juce_core.h>
@@ -55,7 +55,7 @@ namespace uniq::unipack
 			-> bool;
 	public:
 
-		static auto load(const std::string& zip_path) -> std::shared_ptr<uniq>;
-		static bool save(const std::string& path, const std::shared_ptr<uniq>& unipack);
+		static auto load(const std::string& zip_path) -> std::shared_ptr<project::project>;
+		static bool save(const std::string& path, const std::shared_ptr<project::project>& unipack);
 	};
 }

@@ -8,7 +8,7 @@ using namespace uniq;
 
 namespace uniq::core::workspace_preset
 {
-	void workspace_info_class::set(const id_t id, const source_location location)
+	void workspace_info_class::set(const id_t id, const log::slm_t &location)
 	{
 		this->id = id;
 		api_function_name = location.function_name();

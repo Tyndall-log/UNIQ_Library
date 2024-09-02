@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: © 2024 Kim Eun-su <eunsu0402@gmail.com>
 // SPDX-License-Identifier: LGPL-3.0-linking-exception
 
-#include "uniq.h"
+#include "project.h"
 
 #include <utility>
 
 using namespace std;
 using namespace juce;
 
-namespace uniq
+namespace uniq::project
 {
 	auto timeline_cue::operator<=>(const timeline_cue &other) const
 	{
@@ -292,7 +292,7 @@ namespace uniq
 		return it->second;
 	}
 
-	bool uniq::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
+	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
 	                                        const std::shared_ptr<page_callback> &rhs) const
 	{
 		if (const auto cmp = *lhs->page->start_cue->cue_point <=> *rhs->page->start_cue->cue_point; cmp != 0)
@@ -300,41 +300,41 @@ namespace uniq
 		return lhs->page->ID_get() < rhs->page->ID_get();
 	}
 
-	bool uniq::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
+	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
 		const std::shared_ptr<timeline_page> &rhs) const
 	{
 		return *lhs->page->start_cue->cue_point < *rhs->start_cue->cue_point;
 	}
 
-	bool uniq::page_set_compare::operator()(const std::shared_ptr<timeline_page> &lhs,
+	bool project::page_set_compare::operator()(const std::shared_ptr<timeline_page> &lhs,
 		const std::shared_ptr<page_callback> &rhs) const
 	{
 		return *lhs->start_cue->cue_point < *rhs->page->start_cue->cue_point;
 	}
 
-	bool uniq::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs, const cue_point_t &rhs) const
+	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs, const cue_point_t &rhs) const
 	{
 		return *lhs->page->start_cue->cue_point < rhs;
 	}
 
-	bool uniq::page_set_compare::operator()(const cue_point_t &lhs, const std::shared_ptr<page_callback> &rhs) const
+	bool project::page_set_compare::operator()(const cue_point_t &lhs, const std::shared_ptr<page_callback> &rhs) const
 	{
 		return lhs < *rhs->page->start_cue->cue_point;
 	}
 
-	uniq::guide_timer::guide_timer(uniq *uniq)
+	project::guide_timer::guide_timer(project *uniq)
 	{
 		uniq_ = uniq;
 	}
 
-	void uniq::guide_timer::hiResTimerCallback()
+	void project::guide_timer::hiResTimerCallback()
 	{
 		uniq_->guide_cue_ += uniq_->guide_timer_interval_;
 		uniq_->guide_update(true);
 		// log::info("guide_timer");
 	}
 
-	void uniq::guide_update(bool play_audio_flag)
+	void project::guide_update(bool play_audio_flag)
 	{
 		unique_lock lock(guide_update_lock_);
 		//가이드 클리어
@@ -524,7 +524,7 @@ namespace uniq
 		}
 	}
 
-	void uniq::guide_togle()
+	void project::guide_togle()
 	{
 		if (guide_start_)
 		{
@@ -536,7 +536,7 @@ namespace uniq
 		}
 	}
 
-	bool uniq::guide_button_down_check(const uint8_t x, const uint8_t y)
+	bool project::guide_button_down_check(const uint8_t x, const uint8_t y)
 	{
 		if (guide_start_ || !guide_play_)
 		{
@@ -657,7 +657,7 @@ namespace uniq
 		return false;
 	}
 
-	bool uniq::guide_button_up_check(uint8_t x, uint8_t y)
+	bool project::guide_button_up_check(uint8_t x, uint8_t y)
 	{
 		//가이드 토글
 		if (x == 5 && y == 9)
@@ -692,7 +692,7 @@ namespace uniq
 		return false;
 	}
 
-	void uniq::audio_play(const std::shared_ptr<timeline> &target_timeline, const std::shared_ptr<timeline_group> &target_group)
+	void project::audio_play(const std::shared_ptr<timeline> &target_timeline, const std::shared_ptr<timeline_group> &target_group)
 	{
 		constexpr timeline::cue_point_t start_duration = -200ms;
 		constexpr timeline::cue_point_t end_duration = 50ms;
@@ -729,39 +729,39 @@ namespace uniq
 		target_group->segment->play(player_);
 	}
 
-	uniq::uniq()
+	project::project()
 	{
 		current_page_ = timeline_page_create(0us);
 	}
 
-	uniq::~uniq()
+	project::~project()
 	{
 		guide_timer_.stopTimer();
 		launchpad_disconnect_all();
 	}
 
-	void uniq::title_set(const string &title)
+	void project::title_set(const string &title)
 	{
 		title_ = title;
 		core::api::callback_manager.RAC(ID_get(), title);
 	}
 
-	void uniq::producer_name_set(const string &producer_name)
+	void project::producer_name_set(const string &producer_name)
 	{
 		producer_name_ = producer_name;
 		core::api::callback_manager.RAC(ID_get(), producer_name);
 	}
 
-	std::shared_ptr<audio_player> uniq::player_get() const
+	std::shared_ptr<audio_player> project::player_get() const
 	{
 		return player_;
 	}
 
-	uniq::internal::internal(uniq *uniq) : uniq_(uniq)
+	project::internal::internal(project *uniq) : uniq_(uniq)
 	{
 	}
 
-	auto uniq::internal::audio_load(unique_ptr<InputStream> input_stream, const string &extension,
+	auto project::internal::audio_load(unique_ptr<InputStream> input_stream, const string &extension,
 	                                const string &path, const string &name) const -> shared_ptr<audio_source>
 	{
 		auto audio_source =
@@ -771,16 +771,17 @@ namespace uniq
 			log::warn("\"" + name + "\" 오디오 로드 실패");
 			return nullptr;
 		}
-		uniq_->audio_source_list_.push_back(audio_source);
+		uniq_->audio_source_add(audio_source);
 		return audio_source;
 	}
 
-	void uniq::audio_source_add(const std::shared_ptr<audio_source> &audio_source)
+	void project::audio_source_add(const std::shared_ptr<audio_source> &audio_source)
 	{
 		audio_source_list_.push_back(audio_source);
+		core::api::callback_manager.RAC(ID_get(), audio_source->ID_get());
 	}
 
-	std::shared_ptr<timeline> uniq::timeline_create(const std::string &name)
+	std::shared_ptr<timeline> project::timeline_create(const std::string &name)
 	{
 		if (name.empty())
 		{
@@ -801,7 +802,7 @@ namespace uniq
 		return timeline_;
 	}
 
-	std::shared_ptr<timeline> uniq::timeline_get(const std::string &name)
+	std::shared_ptr<timeline> project::timeline_get(const std::string &name)
 	{
 		const auto it = ranges::find_if(timeline_list_, [&name](const auto &timeline)
 		{
@@ -815,7 +816,7 @@ namespace uniq
 		return *it;
 	}
 
-	bool uniq::timeline_remove(const std::string &name)
+	bool project::timeline_remove(const std::string &name)
 	{
 		const auto it = ranges::find_if(timeline_list_, [&name](const auto &timeline)
 		{
@@ -830,7 +831,7 @@ namespace uniq
 		return true;
 	}
 
-	auto uniq::timeline_page_add(const std::shared_ptr<timeline_page> &page) -> bool
+	auto project::timeline_page_add(const std::shared_ptr<timeline_page> &page) -> bool
 	{
 		using callback_mode = hierarchy::hierarchy_feature::callback_mode;
 		auto page_callback_ = make_shared<page_callback>();
@@ -863,7 +864,7 @@ namespace uniq
 		return true;
 	}
 
-	auto uniq::timeline_page_create(const cue_point_t &cue) -> std::shared_ptr<timeline_page>
+	auto project::timeline_page_create(const cue_point_t &cue) -> std::shared_ptr<timeline_page>
 	{
 		auto timeline_page_ = timeline_page::create(cue);
 		timeline_page_add(timeline_page_);
@@ -871,7 +872,7 @@ namespace uniq
 		return timeline_page_;
 	}
 
-	auto uniq::timeline_page_find_floor(const cue_point_t &cue) -> std::shared_ptr<timeline_page>
+	auto project::timeline_page_find_floor(const cue_point_t &cue) -> std::shared_ptr<timeline_page>
 	{
 		if (cue.count() < 0)
 		{
@@ -887,7 +888,7 @@ namespace uniq
 		return (*prev(it))->page;
 	}
 
-	auto uniq::timeline_page_remove(const shared_ptr<timeline_page> &page) -> bool
+	auto project::timeline_page_remove(const shared_ptr<timeline_page> &page) -> bool
 	{
 		const auto it = page_set_.find<shared_ptr<timeline_page>>(page);
 		if (it == page_set_.end())
@@ -899,7 +900,7 @@ namespace uniq
 		return true;
 	}
 
-	auto uniq::guide_start(const cue_point_t &cue) -> void
+	auto project::guide_start(const cue_point_t &cue) -> void
 	{
 		guide_start_ = true;
 		guide_play_ = false;
@@ -914,7 +915,7 @@ namespace uniq
 		guide_update();
 	}
 
-	auto uniq::guide_resume(const cue_point_t &cue) -> void
+	auto project::guide_resume(const cue_point_t &cue) -> void
 	{
 		//TODO: guide_resume
 		if (!guide_start_)
@@ -946,7 +947,7 @@ namespace uniq
 		// guide_timer_.startTimer(guide_timer_interval_);
 	}
 
-	auto uniq::guide_pause() -> void
+	auto project::guide_pause() -> void
 	{
 		if (!guide_start_)
 		{
@@ -963,7 +964,7 @@ namespace uniq
 		guide_update();
 	}
 
-	auto uniq::guide_stop() -> void
+	auto project::guide_stop() -> void
 	{
 		guide_start_ = false;
 		guide_play_ = false;
@@ -971,7 +972,7 @@ namespace uniq
 		// guide_timer_.stopTimer();
 	}
 
-	bool uniq::launchpad_connect(const std::shared_ptr<launchpad> &launchpad)
+	bool project::launchpad_connect(const std::shared_ptr<launchpad> &launchpad)
 	{
 		launchpad_ = launchpad;
 		launchpad_->program_mode_set(true);
@@ -990,7 +991,7 @@ namespace uniq
 		return true;
 	}
 
-	bool uniq::launchpad_auto_connect()
+	bool project::launchpad_auto_connect()
 	{
 		auto midi_input_device_info_list = launchpad::get_available_input_list();
 		for (const auto& l : midi_input_device_info_list)
@@ -1014,7 +1015,7 @@ namespace uniq
 		return true;
 	}
 
-	bool uniq::launchpad_disconnect_all()
+	bool project::launchpad_disconnect_all()
 	{
 		if (!launchpad_) return false;
 		launchpad_->program_mode_set(false);
@@ -1025,7 +1026,7 @@ namespace uniq
 		return true;
 	}
 
-	void uniq::pad_button_down(const uint8_t x, const uint8_t y, const uint8_t velocity)
+	void project::pad_button_down(const uint8_t x, const uint8_t y, const uint8_t velocity)
 	{
 		// log::info("pad_button_down: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity));
 
@@ -1115,7 +1116,7 @@ namespace uniq
 		target_timeline->last_play_group_set(x, y, target_group);
 	}
 
-	void uniq::pad_button_up(const uint8_t x, const uint8_t y)
+	void project::pad_button_up(const uint8_t x, const uint8_t y)
 	{
 		// log::info("pad_button_up: " + to_string(x) + ", " + to_string(y));
 		if (guide_button_up_check(x, y)) return;
@@ -1127,7 +1128,7 @@ namespace uniq
 		}
 	}
 
-	void uniq::pad_button_touch(const uint8_t x, const uint8_t y, const uint8_t velocity)
+	void project::pad_button_touch(const uint8_t x, const uint8_t y, const uint8_t velocity)
 	{
 		pad_button_down(x, y, velocity);
 		pad_button_up(x, y);

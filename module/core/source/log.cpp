@@ -98,11 +98,11 @@ namespace uniq
 		println_without_lock(s);
 	}
 
-	void log::error(const std::string_view str, const source_info_t &source_info)
+	void log::error(const std::string_view str, const slm_t &slm)
 	{
 		lock_guard lock(sl);
 		string s = "[Error]: ";
-		s += source_info.data;
+		s += slm.data_;
 		s += " ";
 		s += str;
 		println_without_lock(s);

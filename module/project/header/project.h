@@ -8,9 +8,9 @@
 #include "launchpad.h"
 #include "lightshow.h"
 
-namespace uniq
+namespace uniq::project
 {
-	class timeline_cue : public ID<timeline_cue>, public hierarchy::hierarchy_feature
+	class timeline_cue : public core::ID<timeline_cue>, public hierarchy::hierarchy_feature
 	{
 	public:
 		using cue_point_t = std::chrono::duration<int64_t, std::micro>;
@@ -21,7 +21,7 @@ namespace uniq
 		auto operator<=>(const timeline_cue &other) const;
 	};
 
-	struct timeline_group : ID<timeline_group>, hierarchy::hierarchy_feature
+	struct timeline_group : core::ID<timeline_group>, hierarchy::hierarchy_feature
 	{
 		using press_duration_t = timeline_cue::cue_point_t;
 		chain<int8_t> button_x{this, 0};
@@ -33,7 +33,7 @@ namespace uniq
 		std::shared_ptr<lightshow::lightshow_data> lightshow_data;
 	};
 
-	class timeline : public ID<timeline>//, public hierarchy::hierarchy_feature
+	class timeline : public core::ID<timeline>//, public hierarchy::hierarchy_feature
 	{
 	public:
 		using cue_point_t = timeline_cue::cue_point_t;
@@ -117,7 +117,7 @@ namespace uniq
 		// [[nodiscard]] const std::set<std::shared_ptr<timeline_group>, timeline_group_compare_start_cue>& group_set_get() const;
 	};
 
-	struct timeline_page : ID<timeline_page>
+	struct timeline_page : core::ID<timeline_page>
 	{
 		using cue_point_t = timeline_cue::cue_point_t;
 		std::shared_ptr<timeline_cue> start_cue;
@@ -144,7 +144,7 @@ namespace uniq
 		bool next_page_remove(xy xy);
 	};
 
-	class uniq : public ID<uniq>
+	class project : public core::ID<project>
 	{
 	public:
 		using cue_point_t = timeline_cue::cue_point_t;
@@ -176,9 +176,9 @@ namespace uniq
 		std::shared_ptr<timeline_page> current_page_;
 		class guide_timer : public juce::HighResolutionTimer
 		{
-			uniq* uniq_;
+			project* uniq_;
 		public:
-			explicit guide_timer(uniq* uniq);
+			explicit guide_timer(project* uniq);
 			void hiResTimerCallback() override;
 		} guide_timer_{this};
 		std::chrono::milliseconds guide_timer_interval_{10};
@@ -213,9 +213,9 @@ namespace uniq
 
 		void audio_play(const std::shared_ptr<timeline>& target_timeline, const std::shared_ptr<timeline_group>& target_group);
 	protected:
-		uniq();
+		project();
 	public:
-		~uniq();
+		~project();
 		[[nodiscard]] std::string title_get() const;
 		void title_set(const std::string& title);
 		[[nodiscard]] std::string producer_name_get() const;
@@ -224,8 +224,8 @@ namespace uniq
 		bool audio_load(const std::string& path);
 		struct internal
 		{
-			uniq* uniq_;
-			explicit internal(uniq* uniq);
+			project* uniq_;
+			explicit internal(project* uniq);
 			// std::shared_ptr<pad_key_info>& pad_key_info{uniq_->pad_key_info_};
 
 			[[nodiscard]] std::shared_ptr<audio_source> audio_load(std::unique_ptr<juce::InputStream> input_stream,

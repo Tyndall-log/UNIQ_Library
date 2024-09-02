@@ -3,6 +3,8 @@
 
 #pragma once
 
+// #include "id.h"
+#include "log.h"
 #include "alias.h"
 #include "hash.h"
 
@@ -34,15 +36,17 @@ namespace uniq::core::api
 	/// global_api_lock은 API 함수들이 동시에 호출되는 것을 막기 위한 mutex입니다.<br>
 	/// 기본적으로 모든 API 함수는 비동기 호출을 가정합니다.<br>
 	/// 만일 API 함수에서 비동기를 호출을 지원한다면, global_api_lock을 꼭 사용할 필요는 없습니다.<br>
-	/// 비동기 호출을 지원하지 않는 경우, global_api_lock을 사용하여 동시에 호출되는 것을 막아야 합니다.
+	/// 비동기 호출을 지원하지 않는 경우에만, global_api_lock을 사용하여 동시에 호출되는 상황을 방지해야 합니다.
 	extern std::mutex global_api_lock;
 
-	struct workspace_info_raii
-	{
-		explicit workspace_info_raii(id_t id, std::source_location location = std::source_location::current());
-
-		~workspace_info_raii();
-	};
+	// struct workspace_info_raii
+	// {
+	// 	bool failed = false;
+	// 	explicit workspace_info_raii(id_t id, std::source_location location = std::source_location::current());
+	// 	[[nodiscard]] bool is_failed() const;
+	//
+	// 	~workspace_info_raii();
+	// };
 
 	struct API_callback_message_base
 	{
@@ -73,45 +77,16 @@ namespace uniq::core::api
 			: API_callback_message_base(obj_id, func_id, sizeof(T), new T(std::forward<Args>(args)...)) {}
 		API_callback_message(const API_callback_message&) = delete;
 		API_callback_message& operator=(const API_callback_message&) = delete;
-		~API_callback_message() override { delete static_cast<T*>(data_ptr); }
-		void set_obj_id_type_name(const char* type_name) { obj_id_type_name = type_name; }
-		void set_func_name(const char* func_name) { func_id_name = func_name; }
+		~API_callback_message() override {
+			if (default_name != obj_id_type_name)
+				delete obj_id_type_name;
+			if (default_name != func_id_name)
+				delete func_id_name;
+			delete static_cast<T*>(data_ptr);
+		}
+		void set_obj_id_type_name(const char* type_name) { obj_id_type_name = strdup(type_name); }
+		void set_func_name(const char* func_name) { func_id_name = strdup(func_name); }
 	};
-
-	// class API_callback_message_legacy
-	// {
-	// 	inline static const auto default_name = "unknown";
-	// 	const id_t api_workspace_id = workspace_info.get_id();
-	// 	const char *const api_func_name = workspace_info.get_function_name().data();
-	// 	const id_t obj_id;
-	// 	const char *obj_id_type_name = default_name;
-	// 	const id_t func_id;
-	// 	const char *func_id_name = default_name;
-	// 	const size_t data_size;
-	// 	void *data_ptr;
-	// 	std::any data; // 반드시 C 스타일 형식의 배열, 클래스를 저장해야 한다.
-	//
-	// public:
-	// 	// 일반 타입의 데이터 처리
-	// 	template<typename T>
-	// 	API_callback_message_legacy(const id_t obj_id, const id_t func_id, T &&data)
-	// 		: obj_id(obj_id), func_id(func_id), data_size(sizeof(T)), data(std::forward<T>(data))
-	// 	{
-	// 		data_ptr = std::any_cast<std::decay_t<T>>(&this->data);
-	// 	}
-	//
-	// 	// 배열 타입의 데이터 처리 (템플릿 특수화)
-	// 	template<typename T, std::size_t N>
-	// 	API_callback_message_legacy(const id_t obj_id, const id_t func_id, T (&data)[N])
-	// 		: obj_id(obj_id), func_id(func_id), data_size(sizeof(T) * N), data(data)
-	// 	{
-	// 		data_ptr = std::any_cast<T(*)[N]>(&this->data);
-	// 	}
-	//
-	// 	void set_obj_id_type_name(const char *type_name);
-	//
-	// 	void set_func_name(const char *func_name);
-	// };
 
 	class API_callback_manager
 	{
@@ -210,28 +185,6 @@ namespace uniq::core::api
 		};
 
 	public:
-		// // --- legacy start ---
-		// void add(const API_callback_message_legacy *msg);
-		//
-		// void add_create_ID(id_t create_id, const ID_info<> &info = ID_info());
-		//
-		// void add_destroy_ID(id_t destroy_id, const ID_info<> &info = ID_info());
-		//
-		// template<typename T>
-		// void add(const id_t obj_id, const id_t func_id, T &&data)
-		// {
-		// 	auto msg = new API_callback_message_legacy(obj_id, func_id, std::forward<T>(data));
-		// 	add(msg);
-		// }
-		//
-		// template<typename T>
-		// void add(const predefined_ID pre_id, const id_t func_id, T &&data)
-		// {
-		// 	add(static_cast<id_t>(pre_id), func_id, std::forward<T>(data));
-		// }
-		// template<typename T>
-		// void add_predefined_ID(predefined_ID pre_id, id_t func_id, const API_callback_message<T>* data);
-		// // --- legacy end ---
 
 		template<typename T>
 		void add(API_callback_message<T>* msg)

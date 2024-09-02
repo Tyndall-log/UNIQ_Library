@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_formats/juce_audio_formats.h> // GPL-3.0-or-later
 #include "core.h"
 #include "fade.h"
 #include "interpolator.h"
 #include <chrono>
-#include <juce_audio_basics/juce_audio_basics.h>
-#include <juce_audio_devices/juce_audio_devices.h>
-#include <juce_audio_formats/juce_audio_formats.h> // GPL-3.0-or-later
 
 namespace uniq
 {
@@ -18,7 +18,7 @@ namespace uniq
 
 	namespace internal
 	{
-		class audio_format_manager// : public ID<audio_format_manager>
+		class audio_format_manager// : public core::ID<audio_format_manager>
 		{
 			// std::shared_ptr<message_thread> mt_ = message_thread::get();
 			inline static std::weak_ptr<juce::AudioFormatManager> format_manager_weak_{};
@@ -294,7 +294,7 @@ namespace uniq
 		};
 	}
 
-	class audio_player : public ID<audio_player>
+	class audio_player : public core::ID<audio_player>
 	{
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
 		std::shared_ptr<audio_device_manager> device_manager_;
@@ -306,13 +306,13 @@ namespace uniq
 		explicit audio_player(const std::shared_ptr<audio_device_manager>& device_manager);
 	public:
 		~audio_player();
-		std::shared_ptr<audio_device_manager> device_manager_get() const;
+		[[nodiscard]] std::shared_ptr<audio_device_manager> device_manager_get() const;
 		using play_param = internal::audio_custom_source::add_audio_param;
-		auto add_audio(const std::shared_ptr<internal::audio_data>& data, const play_param& param = {}) const -> bool;
+		[[nodiscard]] auto add_audio(const std::shared_ptr<internal::audio_data>& data, const play_param& param = {}) const -> bool;
 		// auto add_audio(const std::shared_ptr<audio_source>& data, ) const -> bool;
 	};
 
-	class audio_cue : public ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy_legacy
+	class audio_cue : public core::ID<audio_cue>, callback_event<audio_cue>, callback_check_event<audio_cue>//, public hierarchy_legacy
 	{
 	public:
 		using cue_point_t = std::uint64_t;
@@ -328,7 +328,7 @@ namespace uniq
 		explicit operator std::uint64_t() const;
 	};
 
-	class audio_source : public ID<audio_source>
+	class audio_source : public core::ID<audio_source>
 	{
 		using cue_point_t = audio_cue::cue_point_t;
 		// using segment_list_t = std::vector<std::shared_ptr<audio_segment>>;
@@ -403,7 +403,7 @@ namespace uniq
 	// }
 
 
-	struct audio_segment : ID<audio_segment>, callback_event<audio_segment>//, callback_check_event<audio_segment>
+	struct audio_segment : core::ID<audio_segment>, callback_event<audio_segment>//, callback_check_event<audio_segment>
 	{
 		using sync_duration_t = std::chrono::duration<std::int32_t, std::micro>;
 		spin_lock sl_;
