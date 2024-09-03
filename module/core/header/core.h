@@ -352,7 +352,8 @@ namespace uniq
 		inline static std::shared_ptr<message_thread> instance_ = nullptr;
 		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::mutex mutex_;
-		message_thread();
+		inline static bool current_thread_to_message_thread_;
+		explicit message_thread(bool current_thread_to_message_thread);
 		void run() override;
 		template<typename Func, typename Promise>
 		static void execute_and_set(Func &f, Promise &promise)
@@ -380,8 +381,8 @@ namespace uniq
 		message_thread(message_thread&&) = delete; //이동 생성자 삭제
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
 		message_thread& operator=(message_thread&&) = delete; //이동 대입 연산자 삭제
-		[[nodiscard]] static std::shared_ptr<message_thread> get();
-		static void activate();
+		[[nodiscard]] static std::shared_ptr<message_thread> get(bool current_thread_to_message_thread = false);
+		static void activate(bool current_thread_to_message_thread = false);
 		static void deactivate();
 		template<typename Func>
 		auto call_async(Func f) -> std::future<decltype(f())>

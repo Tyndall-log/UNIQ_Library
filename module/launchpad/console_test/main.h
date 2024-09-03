@@ -3,6 +3,6 @@
 
 #include "launchpad.h"
 
-int test1();
-int test2();
+int launchpad_test1();
+int core_test2();
 int test3();

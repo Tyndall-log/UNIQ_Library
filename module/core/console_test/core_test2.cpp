@@ -30,7 +30,7 @@ namespace ns_test2
 
 using namespace ns_test2;
 
-int test2()
+int core_test2()
 {
 	//메모: decltype: 타입 추론
 

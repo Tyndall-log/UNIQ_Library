@@ -7,8 +7,8 @@ using namespace std;
 using namespace juce;
 using namespace uniq;
 
-int uniq_test1()
+int project_test1()
 {
-	cout << "uniq_test1" << endl;
+	cout << "project_test1" << endl;
 	return 0;
 }

@@ -3,18 +3,44 @@
 
 #include "main.h"
 
-int main()
-{
-	system("chcp 65001"); //한글 설정
+using namespace std;
+using namespace juce;
 
-	//고속 출력
+class UNIQ_Library_audio_test final : public JUCEApplicationBase
+{
+	const String getApplicationName() override { return "UNIQ_Library_audio_test"; }
+	const String getApplicationVersion() override { return "0.0.0"; }
+	bool moreThanOneInstanceAllowed() override { return false; }
+	void anotherInstanceStarted(const String&) override {}
+	void initialise(const String&) override {}
+	void shutdown() override {}
+	void systemRequestedQuit() override {}
+	void unhandledException(const std::exception*, const String&, int) override {}
+	void suspended() override {}
+	void resumed() override {}
+};
+
+int main(const int argc, const char* argv[])
+{
+#if defined(_WIN32)
+	system("chcp 65001"); //utf-8
+#endif
+
 	std::ios_base::sync_with_stdio(false);
 	std::cin.tie(nullptr);
 	std::cout.tie(nullptr);
 
-	// test1();
-	// test2();
-	sync_test();
+	//force the main thread to be the current thread
+	auto mm = uniq::message_thread::get(true);
 
-	return 0;
+	auto t = std::thread([&] {
+		// test1();
+		// test2();
+		sync_test();
+		mm.reset();
+	});
+
+	t.detach();
+	JUCEApplicationBase::createInstance = []() -> JUCEApplicationBase* { return new UNIQ_Library_audio_test(); };
+	return JUCEApplicationBase::main(argc, argv);
 }

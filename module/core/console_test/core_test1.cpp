@@ -57,7 +57,7 @@ public:
 	}
 };
 
-int test1()
+int core_test1()
 {
 	cout << "Hello World!\n";
 	

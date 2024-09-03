@@ -1,24 +1,42 @@
 // SPDX-FileCopyrightText: © 2024 Kim Eun-su <eunsu0402@gmail.com>
 // SPDX-License-Identifier: LGPL-3.0-linking-exception
 
-#include "api.h"
-#include "secret.h"
-#include "api_workspace.h"
-#include "api_unipack.h"
-
-// #include "../source/workspace.cpp"
-// #include "../source/unipack.cpp"
+#include "main.h"
 
 using namespace std;
+using namespace juce;
+
+class UNIQ_Library_api_test final : public JUCEApplicationBase
+{
+	const String getApplicationName() override { return "UNIQ_Library_api_test"; }
+	const String getApplicationVersion() override { return "0.0.0"; }
+	bool moreThanOneInstanceAllowed() override { return false; }
+	void anotherInstanceStarted(const String&) override {}
+	void initialise(const String&) override {}
+	void shutdown() override {}
+	void systemRequestedQuit() override {}
+	void unhandledException(const std::exception*, const String&, int) override {}
+	void suspended() override {}
+	void resumed() override {}
+};
+
 using namespace uniq;
 
-int main()
+int main(const int argc, const char* argv[])
 {
-	auto id = workspace::workspace_create();
-	auto project_id = unipack::unipack_load(id, test_path.c_str());
-	log::info("Project ID: " + to_string(project_id));
-	int a;
-	cin >> a;
-	workspace::workspace_destroy(id);
-	return 0;
+#if defined(_WIN32)
+	system("chcp 65001"); //utf-8
+#endif
+
+	//force the main thread to be the current thread
+	auto mm = message_thread::get(true);
+
+	auto t = std::thread([&] {
+		api_test1();
+		mm.reset();
+	});
+
+	t.detach();
+	JUCEApplicationBase::createInstance = []() -> JUCEApplicationBase* { return new UNIQ_Library_api_test(); };
+	return JUCEApplicationBase::main(argc, argv);
 }

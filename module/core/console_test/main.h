@@ -3,6 +3,6 @@
 
 #include "core.h"
 
-int test1();
-int test2();
+int core_test1();
+int core_test2();
 int lock_test();

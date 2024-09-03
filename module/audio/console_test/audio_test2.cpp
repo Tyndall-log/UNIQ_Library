@@ -113,7 +113,7 @@ namespace test_ns2
 	};
 }
 
-int test2()
+int audio_test2()
 {
 	using namespace test_ns2;
 	auto mt = uniq::message_thread::get();

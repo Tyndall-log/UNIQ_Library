@@ -58,7 +58,7 @@ namespace test_ns1
 //static auto mu_t = mutex_test::get();
 
 
-int test1()
+int audio_test1()
 {
 	int a;
 

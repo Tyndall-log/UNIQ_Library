@@ -7,11 +7,11 @@ using namespace std;
 using namespace juce;
 using namespace uniq;
 
-int test1()
+int launchpad_test1()
 {
-	cout << "test1" << endl;
+	cout << "launchpad_test1" << endl;
 	
-	system("chcp 65001"); //한글 설정
+
 	// auto MMT = make_unique<MainMessageThread>(); //메시지 관리 스레드 시작
 	auto MT = message_thread::get();
 	shared_ptr<AudioDeviceManager> ADM;

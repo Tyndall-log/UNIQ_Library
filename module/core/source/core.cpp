@@ -49,11 +49,22 @@ namespace uniq
 		mm->runDispatchLoop();
 	}
 
-	message_thread::message_thread() : Thread("UNIQ_MessageThread")
+	message_thread::message_thread(const bool current_thread_to_message_thread)
+		: Thread("UNIQ_MessageThread")
 	{
+		current_thread_to_message_thread_ = current_thread_to_message_thread;
+		if (current_thread_to_message_thread)
+		{
+			if (MessageManager::getInstanceWithoutCreating())
+			{
+				log::warn("message_thread already exists. delete it");
+				MessageManager::deleteInstance();
+			}
+			mm_= unique_ptr<MessageManager>(MessageManager::getInstance());
+			log::info("message_thread start");
+			return;
+		}
 		startThread();
-		// mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
-		// mm_->runDispatchLoop();
 		log::info(wait(1000) ? "message_thread start" : "message_thread fail");
 	}
 
@@ -61,6 +72,11 @@ namespace uniq
 	{
 		if (!mm_) return;
 		mm_->stopDispatchLoop();
+		if (current_thread_to_message_thread_)
+		{
+			[[maybe_unused]] const auto p = mm_.release();
+			return;
+		}
 		const auto result = stopThread(1000);
 		log::info(result ? "message_thread stop" : "message_thread stop fail");
 	}
@@ -90,28 +106,36 @@ namespace uniq
 #else
 		mm_->runDispatchLoop();
 #endif
-		// mm_.reset();
-		// notify(); // 메시지 스레드가 종료되었음을 알림
-		// DeletedAtShutdown::deleteAll();
+		mm_.reset();
+		notify(); // 메시지 스레드가 종료되었음을 알림
+		DeletedAtShutdown::deleteAll();
 	}
 
-	shared_ptr<message_thread> message_thread::get()
+	shared_ptr<message_thread> message_thread::get(const bool current_thread_to_message_thread)
 	{
 		lock_guard lock(mutex_);
 		if (instance_) return instance_;
 		if (!instance_weak_.expired()) return instance_weak_.lock();
-		struct make_shared_enabler : message_thread {};
-		shared_ptr<message_thread> instance = make_shared<make_shared_enabler>();
+		struct make_shared_enabler : message_thread
+		{
+			explicit make_shared_enabler(const bool current_thread_to_message_thread)
+				: message_thread(current_thread_to_message_thread) {}
+		};
+		shared_ptr<message_thread> instance = make_shared<make_shared_enabler>(current_thread_to_message_thread);
 		instance_weak_ = instance;
 		return instance;
 	}
 
-	void message_thread::activate()
+	void message_thread::activate(const bool current_thread_to_message_thread)
 	{
 		lock_guard lock(mutex_);
 		if (instance_) return;
-		struct make_shared_enabler : message_thread {};
-		instance_weak_ = instance_ = make_shared<make_shared_enabler>();
+		struct make_shared_enabler : message_thread
+		{
+			explicit make_shared_enabler(const bool current_thread_to_message_thread)
+				: message_thread(current_thread_to_message_thread) {}
+		};
+		instance_weak_ = instance_ = make_shared<make_shared_enabler>(current_thread_to_message_thread);
 	}
 
 	void message_thread::deactivate()

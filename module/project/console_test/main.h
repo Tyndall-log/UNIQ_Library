@@ -3,4 +3,4 @@
 
 #include "project.h"
 
-int uniq_test1();
+int project_test1();

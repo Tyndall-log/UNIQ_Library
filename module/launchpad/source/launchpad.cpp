@@ -516,7 +516,12 @@ namespace uniq
 	{
 		vector<midi_device_info> devices;
 		auto id_list = map<string, uint8_t>();
-		auto availableDevices = MidiInput::getAvailableDevices();
+
+		auto mm = message_thread::get();
+		auto availableDevices = mm->call_sync([]
+		{
+			return MidiInput::getAvailableDevices();
+		});
 
 		for (auto& deviceInfo : availableDevices)
 		{
@@ -532,8 +537,13 @@ namespace uniq
 	{
 		vector<midi_device_info> devices;
 		auto id_list = map<string, uint8_t>();
-		auto availableDevices = MidiOutput::getAvailableDevices();
-		
+
+		auto mm = message_thread::get();
+		auto availableDevices = mm->call_sync([]
+		{
+			return MidiOutput::getAvailableDevices();
+		});
+
 		for (auto& deviceInfo : availableDevices)
 		{
 			auto name = launchpad_kind_name_get(deviceInfo);
