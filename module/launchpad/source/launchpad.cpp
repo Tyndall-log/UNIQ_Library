@@ -10,52 +10,128 @@ using namespace juce;
 
 namespace uniq
 {
-	void launchpad::midi_callback::handleIncomingMidiMessage(MidiInput* source, const MidiMessage& message)
+	map<string, tuple<string, uint8>> const launchpad_manager::VPID_map = {
+		//1235 -> Focusrite-Novation
+		{"1235" "000e", {"Novation Launchpad", 0_uc}},
+		{"1235" "0020", {"Novation Launchpad S", 0_uc}},
+		{"1235" "0036", {"Novation Launchpad Mini", 0_uc}},
+		{"1235" "0051", {"Novation Launchpad Pro", 0_uc}},
+		{"1235" "0069", {"Novation Launchpad MK2 1", 0_uc}},
+		{"1235" "006a", {"Novation Launchpad MK2 2", 0_uc}},
+		{"1235" "006b", {"Novation Launchpad MK2 3", 0_uc}},
+		{"1235" "006v", {"Novation Launchpad MK2 4", 0_uc}},
+		{"1235" "006d", {"Novation Launchpad MK2 5", 0_uc}},
+		{"1235" "006e", {"Novation Launchpad MK2 6", 0_uc}},
+		{"1235" "006f", {"Novation Launchpad MK2 7", 0_uc}},
+		{"1235" "0070", {"Novation Launchpad MK2 8", 0_uc}},
+		{"1235" "0071", {"Novation Launchpad MK2 9", 0_uc}},
+		{"1235" "0072", {"Novation Launchpad MK2 10", 0_uc}},
+		{"1235" "0073", {"Novation Launchpad MK2 11", 0_uc}},
+		{"1235" "0074", {"Novation Launchpad MK2 12", 0_uc}},
+		{"1235" "0075", {"Novation Launchpad MK2 13", 0_uc}},
+		{"1235" "0076", {"Novation Launchpad MK2 14", 0_uc}},
+		{"1235" "0077", {"Novation Launchpad MK2 15", 0_uc}},
+		{"1235" "0078", {"Novation Launchpad MK2 16", 0_uc}},
+		{"1235" "0103", {"Novation Launchpad X 1", 1_uc}},
+		{"1235" "0104", {"Novation Launchpad X 2", 1_uc}},
+		{"1235" "0105", {"Novation Launchpad X 3", 1_uc}},
+		{"1235" "0106", {"Novation Launchpad X 4", 1_uc}},
+		{"1235" "0107", {"Novation Launchpad X 5", 1_uc}},
+		{"1235" "0108", {"Novation Launchpad X 6", 1_uc}},
+		{"1235" "0109", {"Novation Launchpad X 7", 1_uc}},
+		{"1235" "010a", {"Novation Launchpad X 8", 1_uc}},
+		{"1235" "010b", {"Novation Launchpad X 9", 1_uc}},
+		{"1235" "010c", {"Novation Launchpad X 10", 1_uc}},
+		{"1235" "010d", {"Novation Launchpad X 11", 1_uc}},
+		{"1235" "010e", {"Novation Launchpad X 12", 1_uc}},
+		{"1235" "010f", {"Novation Launchpad X 13", 1_uc}},
+		{"1235" "0110", {"Novation Launchpad X 14", 1_uc}},
+		{"1235" "0111", {"Novation Launchpad X 15", 1_uc}},
+		{"1235" "0112", {"Novation Launchpad X 16", 1_uc}},
+		{"1235" "0113", {"Novation Launchpad Mini MK3 1", 1_uc}},
+		{"1235" "0114", {"Novation Launchpad Mini MK3 2", 1_uc}},
+		{"1235" "0115", {"Novation Launchpad Mini MK3 3", 1_uc}},
+		{"1235" "0116", {"Novation Launchpad Mini MK3 4", 1_uc}},
+		{"1235" "0117", {"Novation Launchpad Mini MK3 5", 1_uc}},
+		{"1235" "0118", {"Novation Launchpad Mini MK3 6", 1_uc}},
+		{"1235" "0119", {"Novation Launchpad Mini MK3 7", 1_uc}},
+		{"1235" "011a", {"Novation Launchpad Mini MK3 8", 1_uc}},
+		{"1235" "011b", {"Novation Launchpad Mini MK3 9", 1_uc}},
+		{"1235" "011c", {"Novation Launchpad Mini MK3 10", 1_uc}},
+		{"1235" "011d", {"Novation Launchpad Mini MK3 11", 1_uc}},
+		{"1235" "011e", {"Novation Launchpad Mini MK3 12", 1_uc}},
+		{"1235" "011f", {"Novation Launchpad Mini MK3 13", 1_uc}},
+		{"1235" "0120", {"Novation Launchpad Mini MK3 14", 1_uc}},
+		{"1235" "0121", {"Novation Launchpad Mini MK3 15", 1_uc}},
+		{"1235" "0122", {"Novation Launchpad Mini MK3 16", 1_uc}},
+		{"1235" "0123", {"Novation Launchpad Pro MK3 1", 1_uc}},
+		{"1235" "0124", {"Novation Launchpad Pro MK3 2", 1_uc}},
+		{"1235" "0125", {"Novation Launchpad Pro MK3 3", 1_uc}},
+		{"1235" "0126", {"Novation Launchpad Pro MK3 4", 1_uc}},
+		{"1235" "0127", {"Novation Launchpad Pro MK3 5", 1_uc}},
+		{"1235" "0128", {"Novation Launchpad Pro MK3 6", 1_uc}},
+		{"1235" "0129", {"Novation Launchpad Pro MK3 7", 1_uc}},
+		{"1235" "012a", {"Novation Launchpad Pro MK3 8", 1_uc}},
+		{"1235" "012b", {"Novation Launchpad Pro MK3 9", 1_uc}},
+		{"1235" "012c", {"Novation Launchpad Pro MK3 10", 1_uc}},
+		{"1235" "012d", {"Novation Launchpad Pro MK3 11", 1_uc}},
+		{"1235" "012e", {"Novation Launchpad Pro MK3 12", 1_uc}},
+		{"1235" "012f", {"Novation Launchpad Pro MK3 13", 1_uc}},
+		{"1235" "0130", {"Novation Launchpad Pro MK3 14", 1_uc}},
+		{"1235" "0131", {"Novation Launchpad Pro MK3 15", 1_uc}},
+		{"1235" "0132", {"Novation Launchpad Pro MK3 16", 1_uc}},
+	};
+	map<string, string> const launchpad_manager::android_launchpad_map = {
+		{"Focusrite - Novation Launchpad", "Novation Launchpad"},
+		{"Focusrite - Novation Launchpad S", "Novation Launchpad S"},
+		{"Focusrite - Novation Launchpad Mini", "Novation Launchpad Mini"},
+		{"Focusrite - Novation Launchpad Pro", "Novation Launchpad Pro"},
+		{"Focusrite - Novation Launchpad MK2", "Novation Launchpad MK2"},
+		{"Focusrite - Novation Launchpad X-2", "Novation Launchpad X"},
+		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
+		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
+	};
+	list<tuple<string, string>> const launchpad_manager::macos_launchpad_list = {
+		{"Launchpad", "Novation Launchpad"},
+		{"Launchpad S", "Novation Launchpad S"},
+		{"Launchpad Mini", "Novation Launchpad Mini"},
+		{"Launchpad Pro", "Novation Launchpad Pro"},
+		{"Launchpad MK2", "Novation Launchpad MK2"},
+		{"Launchpad X", "Novation Launchpad X"},
+		{"Launchpad Mini MK3", "Novation Launchpad Mini MK3"},
+		{"Launchpad Pro MK3", "Novation Launchpad Pro MK3"},
+	};
+
+	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info) : MidiDeviceInfo(info){}
+
+	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info, const String& name) : MidiDeviceInfo(info)
 	{
-		//printHex(message.getRawData(), message.getRawDataSize());
-		if (callback_function) callback_function(message.getRawData(), message.getRawDataSize());
-		// for (auto& &[k, f] : callback_function_map_)
-		// {
-		// 	f(const_cast<uint8_t*>(message.getRawData()), message.getRawDataSize());
-		// }
-	}
-	
-	void launchpad::midi_callback::printHex(const uint8_t* data, size_t length)
-	{
-		log::println("MIDI_IN: " + String::toHexString(data, static_cast<int>(length)).toStdString());
+		this->kind_name = name.toStdString();
 	}
 
-	void launchpad::midi_callback::callback_set(function<void(const uint8_t*, int)> callback)
+	launchpad_manager::~launchpad_manager()
 	{
-		callback_function = std::move(callback);
+		log::info("launchpad_manager 해제 중...");
+		launchpad_automatic_map_.clear();
+		message_thread_->call_sync([]
+		{
+			midi_device_list_connection_.reset();
+			audio_device_manager_.reset();
+		});
+		message_thread_.reset();
+		log::info("launchpad_manager 해제 완료");
 	}
 
-	// int launchpad::midi_callback::callback_add(std::function<void(std::uint8_t *, int)> &&callback)
-	// {
-	// 	callback_function_map_[++callback_function_map_index] = std::move(callback);
-	// 	return callback_function_map_index;
-	// }
-	//
-	// bool launchpad::midi_callback::callback_remove(const int callback_id)
-	// {
-	// 	return callback_function_map_.erase(callback_id) != 0;
-	// }
-
-	void launchpad::init()
-	{
-	
-	}
-	
-	std::string launchpad::launchpad_kind_name_get(juce::MidiDeviceInfo& mdi)
+	std::string launchpad_manager::launchpad_kind_name_get(MidiDeviceInfo& mdi)
 	{
 #if JUCE_WINDOWS
 		auto& identifier = mdi.identifier;
-		
+
 		if (!identifier.startsWith(R"(\\?\usb#)")) return "";
 
 		int pos = identifier.indexOf(8, "vid_");
 		const auto& vid = 0 <= pos ? identifier.substring(pos + 4, pos + 8).toStdString() : "0000";
-		
+
 		pos = identifier.indexOf(pos + 9, "pid_");
 		const auto& pid = 0 <= pos ? identifier.substring(pos + 4, pos + 8).toStdString() : "0000";
 
@@ -74,7 +150,7 @@ namespace uniq
 		const auto global_num = 0 <= pos ? identifier.substring(pos + 1).toStdString() : "0";
 		auto num = get<1>(it->second);
 		const auto global = 0 < num ? "global-" + String(++num) : "global";
-		
+
 		if (global_num != global) return ""; //중복 건너뛰기
 		return get<0>(it->second);
 #elif JUCE_ANDROID
@@ -117,6 +193,200 @@ namespace uniq
 #endif
 	}
 
+	std::string launchpad_manager::launchpad_device_identifier_get(MidiDeviceInfo &mdi)
+	{
+#if JUCE_WINDOWS
+		static_assert(false, "Not implemented");
+#elif JUCE_ANDROID
+		String s = mdi.identifier;
+		return s[0] == '-' ? s.substring(1).toStdString() : s.toStdString();
+#elif JUCE_MAC
+		return mdi.identifier.upToFirstOccurrenceOf(" ", false, false).toStdString();
+#else
+		return mdi.identifier.toStdString();
+#endif
+	}
+
+	vector<launchpad_manager::midi_device_info> launchpad_manager::get_available_input_list()
+	{
+		vector<midi_device_info> devices;
+		auto id_list = map<string, uint8_t>();
+
+		const auto mt = message_thread::get();
+		auto availableDevices = mt->call_sync([]
+		{
+			return MidiInput::getAvailableDevices();
+		});
+
+		for (auto& deviceInfo : availableDevices)
+		{
+			auto name = launchpad_kind_name_get(deviceInfo);
+			if (name.empty()) continue;
+			devices.emplace_back(std::move(deviceInfo), name);
+		}
+
+		return devices;
+	}
+
+	vector<launchpad_manager::midi_device_info> launchpad_manager::get_available_output_list()
+	{
+		vector<midi_device_info> devices;
+		auto id_list = map<string, uint8_t>();
+
+		const auto mt = message_thread::get();
+		auto availableDevices = mt->call_sync([]
+		{
+			return MidiOutput::getAvailableDevices();
+		});
+
+		for (auto& deviceInfo : availableDevices)
+		{
+			auto name = launchpad_kind_name_get(deviceInfo);
+			if (name.empty()) continue;
+			devices.emplace_back(std::move(deviceInfo), name);
+		}
+
+		return devices;
+	}
+
+	void launchpad_manager::launchpad_map_update()
+	{
+		if (!instance_weak_.expired()) log::info("미디 장치의 변경이 감지되었습니다.");
+		if (launchpad_map_update_future_.valid())
+		{
+			launchpad_map_update_future_.wait();
+		}
+		launchpad_map_update_future_ = message_thread_->call_async([&]
+		{
+			auto adm = audio_device_manager_->get_adm();
+			auto input_list = get_available_input_list();
+			auto output_list = get_available_output_list();
+			unordered_map<string, input_output> input_output_map;
+			for (auto& input : input_list)
+			{
+				input_output_map[launchpad_device_identifier_get(input)].input = input;
+			}
+			for (auto& output : output_list)
+			{
+				input_output_map[launchpad_device_identifier_get(output)].output = output;
+			}
+			vector<string> input_output_remove_list;
+			vector<string> input_output_add_list;
+			for(auto lam_it = launchpad_automatic_map_.begin(); lam_it != launchpad_automatic_map_.end();)
+			{
+				auto& lam_it_k = lam_it->first;
+				auto& lam_it_v = lam_it->second;
+				if (!input_output_map.contains(lam_it_k))
+				{
+					log::info(lam_it_v->input_kind_name_get() + "가 연결이 끊어졌습니다.");
+					lam_it = launchpad_automatic_map_.erase(lam_it);
+					input_output_remove_list.push_back(lam_it_k);
+					continue;
+				}
+				++lam_it;
+			}
+			for (auto &[k, v] : input_output_map)
+			{
+				if (!launchpad_automatic_map_.contains(k))
+				{
+					log::info(v.input->kind_name + "가 연결 되었습니다.");
+					auto lp = launchpad::ID::create(adm, v.input.value(), v.output.value());
+					launchpad_automatic_map_[k] = lp;
+					input_output_add_list.push_back(k);
+				}
+			}
+		});
+	}
+
+	bool launchpad_manager::init()
+	{
+		message_thread_ = message_thread::get_without_creating();
+		if (!message_thread_)
+		{
+			log::error("launchpad_manager를 초기화 하기 전에 message_thread를 생성해야 합니다.");
+			return false;
+		}
+		audio_device_manager_ = audio_device_manager::get();
+		launchpad_map_update();
+		message_thread_->call_async([&] {
+			midi_device_list_connection_ = MidiDeviceListConnection::make(launchpad_map_update);
+			log::info("launchpad_manager 초기화 완료");
+		});
+		return true;
+	}
+
+	std::shared_ptr<launchpad_manager> launchpad_manager::instance_get()
+	{
+		auto instance = instance_weak_.lock();
+		if (instance) return instance;
+		struct make_shared_enabler : launchpad_manager
+		{
+			make_shared_enabler() = default;
+		};
+		log::info("launchpad_manager 초기화 중...");
+		instance = make_shared<make_shared_enabler>();
+		if (!instance->init())
+		{
+			log::error("launchpad_manager 초기화 실패");
+			return nullptr;
+		}
+		instance_weak_ = instance;
+		return instance;
+	}
+
+	std::shared_ptr<launchpad_manager> launchpad_manager::instance_get_without_creating()
+	{
+		return instance_weak_.lock();
+	}
+
+	auto launchpad_manager::launchpad_list_get() -> std::vector<std::shared_ptr<launchpad>>
+	{
+		if (launchpad_map_update_future_.valid())
+		{
+			launchpad_map_update_future_.wait();
+		}
+		auto range = launchpad_automatic_map_ | std::views::values;
+		return {range.begin(), range.end()};
+	}
+
+	void launchpad::midi_callback::handleIncomingMidiMessage(MidiInput* source, const MidiMessage& message)
+	{
+		//printHex(message.getRawData(), message.getRawDataSize());
+		if (callback_function) callback_function(message.getRawData(), message.getRawDataSize());
+		// for (auto& &[k, f] : callback_function_map_)
+		// {
+		// 	f(const_cast<uint8_t*>(message.getRawData()), message.getRawDataSize());
+		// }
+	}
+	
+	void launchpad::midi_callback::printHex(const uint8_t* data, size_t length)
+	{
+		log::println("MIDI_IN: " + String::toHexString(data, static_cast<int>(length)).toStdString());
+	}
+
+	void launchpad::midi_callback::callback_set(function<void(const uint8_t*, int)> callback)
+	{
+		callback_function = std::move(callback);
+	}
+
+	// int launchpad::midi_callback::callback_add(std::function<void(std::uint8_t *, int)> &&callback)
+	// {
+	// 	callback_function_map_[++callback_function_map_index] = std::move(callback);
+	// 	return callback_function_map_index;
+	// }
+	//
+	// bool launchpad::midi_callback::callback_remove(const int callback_id)
+	// {
+	// 	return callback_function_map_.erase(callback_id) != 0;
+	// }
+
+	void launchpad::init()
+	{
+	
+	}
+	
+
+
 	void launchpad::input_button_callback(const uint8_t* const data, const int size) const
 	{
 		if (size < 3) return;
@@ -153,13 +423,6 @@ namespace uniq
 		}
 	}
 	
-	launchpad::midi_device_info::midi_device_info(const juce::MidiDeviceInfo&& info) : MidiDeviceInfo(info){}
-	
-	launchpad::midi_device_info::midi_device_info(const juce::MidiDeviceInfo&& info, const juce::String& name) : MidiDeviceInfo(info)
-	{
-		this->kind_name = name.toStdString();
-	}
-	
 	launchpad::launchpad(shared_ptr<AudioDeviceManager>& adm)
 	{
 		deviceManager = adm;
@@ -194,11 +457,18 @@ namespace uniq
 		midi_output_set(mdi_output);
 	}
 
-	launchpad::launchpad(const shared_ptr<audio_device_manager> &adm, const midi_device_info* mdi_input, const midi_device_info* mdi_output)
-	: launchpad(adm->get())
+	launchpad::launchpad(const shared_ptr<audio_device_manager>& adm, const midi_device_info* mdi_input, const midi_device_info* mdi_output)
+	: launchpad(adm->get_adm())
 	{
 		if (mdi_input) midi_input_set(*mdi_input);
 		if (mdi_output) midi_output_set(*mdi_output);
+	}
+
+	launchpad::launchpad(const std::shared_ptr<audio_device_manager>& adm, const input_output& io)
+		: launchpad(adm->get_adm())
+	{
+		if (io.input) midi_input_set(*io.input);
+		if (io.output) midi_output_set(*io.output);
 	}
 
 	launchpad::~launchpad()
@@ -490,7 +760,8 @@ namespace uniq
 		return input_callback_function_map_.erase(callback_id) != 0;
 	}
 
-	auto launchpad::input_button_down_callback_add(std::function<void(std::uint8_t, std::uint8_t, std::uint8_t)> &&callback) -> int
+	auto launchpad::input_button_down_callback_add(
+		std::function<void(std::uint8_t x, std::uint8_t y, std::uint8_t velocity)> &&callback) -> int
 	{
 		input_button_down_callback_map_[++input_callback_function_map_index] = std::move(callback);
 		return input_callback_function_map_index;
@@ -501,7 +772,7 @@ namespace uniq
 		return input_button_down_callback_map_.erase(callback_id) != 0;
 	}
 
-	auto launchpad::input_button_up_callback_add(std::function<void(std::uint8_t, std::uint8_t)> &&callback) -> int
+	auto launchpad::input_button_up_callback_add(std::function<void(std::uint8_t x, std::uint8_t y)> &&callback) -> int
 	{
 		input_button_up_callback_map_[++input_callback_function_map_index] = std::move(callback);
 		return input_callback_function_map_index;
@@ -510,48 +781,6 @@ namespace uniq
 	bool launchpad::input_button_up_callback_remove(int callback_id)
 	{
 		return input_button_up_callback_map_.erase(callback_id) != 0;
-	}
-
-	vector<launchpad::midi_device_info> launchpad::get_available_input_list()
-	{
-		vector<midi_device_info> devices;
-		auto id_list = map<string, uint8_t>();
-
-		auto mm = message_thread::get();
-		auto availableDevices = mm->call_sync([]
-		{
-			return MidiInput::getAvailableDevices();
-		});
-
-		for (auto& deviceInfo : availableDevices)
-		{
-			auto name = launchpad_kind_name_get(deviceInfo);
-			if (name.empty()) continue;
-			devices.emplace_back(std::move(deviceInfo), name);
-		}
-		
-		return devices;
-	}
-	
-	vector<launchpad::midi_device_info> launchpad::get_available_output_list()
-	{
-		vector<midi_device_info> devices;
-		auto id_list = map<string, uint8_t>();
-
-		auto mm = message_thread::get();
-		auto availableDevices = mm->call_sync([]
-		{
-			return MidiOutput::getAvailableDevices();
-		});
-
-		for (auto& deviceInfo : availableDevices)
-		{
-			auto name = launchpad_kind_name_get(deviceInfo);
-			if (name.empty()) continue;
-			devices.emplace_back(std::move(deviceInfo), name);
-		}
-		
-		return devices;
 	}
 	
 	string launchpad::input_identifier_get() const
@@ -563,7 +792,27 @@ namespace uniq
 	{
 		return output->getIdentifier().toStdString();
 	}
-	
+
+	std::string launchpad::input_kind_name_get() const
+	{
+		return midi_input_kind_name;
+	}
+
+	std::string launchpad::output_kind_name_get() const
+	{
+		return midi_output_kind_name;
+	}
+
+	std::string launchpad::input_name_get() const
+	{
+		return input->getName().toStdString();
+	}
+
+	std::string launchpad::output_name_get() const
+	{
+		return output->getName().toStdString();
+	}
+
 	vector<uint8> hexStringToBytes(const String& input)
 	{
 		vector<uint8> result;
@@ -580,98 +829,6 @@ namespace uniq
 		}
 		return result;
 	}
-	
-	map<string, tuple<string, uint8>> const launchpad::VPID_map = {
-		//1235 -> Focusrite-Novation
-		{"1235" "000e", {"Novation Launchpad", 0_uc}},
-		{"1235" "0020", {"Novation Launchpad S", 0_uc}},
-		{"1235" "0036", {"Novation Launchpad Mini", 0_uc}},
-		{"1235" "0051", {"Novation Launchpad Pro", 0_uc}},
-		{"1235" "0069", {"Novation Launchpad MK2 1", 0_uc}},
-		{"1235" "006a", {"Novation Launchpad MK2 2", 0_uc}},
-		{"1235" "006b", {"Novation Launchpad MK2 3", 0_uc}},
-		{"1235" "006v", {"Novation Launchpad MK2 4", 0_uc}},
-		{"1235" "006d", {"Novation Launchpad MK2 5", 0_uc}},
-		{"1235" "006e", {"Novation Launchpad MK2 6", 0_uc}},
-		{"1235" "006f", {"Novation Launchpad MK2 7", 0_uc}},
-		{"1235" "0070", {"Novation Launchpad MK2 8", 0_uc}},
-		{"1235" "0071", {"Novation Launchpad MK2 9", 0_uc}},
-		{"1235" "0072", {"Novation Launchpad MK2 10", 0_uc}},
-		{"1235" "0073", {"Novation Launchpad MK2 11", 0_uc}},
-		{"1235" "0074", {"Novation Launchpad MK2 12", 0_uc}},
-		{"1235" "0075", {"Novation Launchpad MK2 13", 0_uc}},
-		{"1235" "0076", {"Novation Launchpad MK2 14", 0_uc}},
-		{"1235" "0077", {"Novation Launchpad MK2 15", 0_uc}},
-		{"1235" "0078", {"Novation Launchpad MK2 16", 0_uc}},
-		{"1235" "0103", {"Novation Launchpad X 1", 1_uc}},
-		{"1235" "0104", {"Novation Launchpad X 2", 1_uc}},
-		{"1235" "0105", {"Novation Launchpad X 3", 1_uc}},
-		{"1235" "0106", {"Novation Launchpad X 4", 1_uc}},
-		{"1235" "0107", {"Novation Launchpad X 5", 1_uc}},
-		{"1235" "0108", {"Novation Launchpad X 6", 1_uc}},
-		{"1235" "0109", {"Novation Launchpad X 7", 1_uc}},
-		{"1235" "010a", {"Novation Launchpad X 8", 1_uc}},
-		{"1235" "010b", {"Novation Launchpad X 9", 1_uc}},
-		{"1235" "010c", {"Novation Launchpad X 10", 1_uc}},
-		{"1235" "010d", {"Novation Launchpad X 11", 1_uc}},
-		{"1235" "010e", {"Novation Launchpad X 12", 1_uc}},
-		{"1235" "010f", {"Novation Launchpad X 13", 1_uc}},
-		{"1235" "0110", {"Novation Launchpad X 14", 1_uc}},
-		{"1235" "0111", {"Novation Launchpad X 15", 1_uc}},
-		{"1235" "0112", {"Novation Launchpad X 16", 1_uc}},
-		{"1235" "0113", {"Novation Launchpad Mini MK3 1", 1_uc}},
-		{"1235" "0114", {"Novation Launchpad Mini MK3 2", 1_uc}},
-		{"1235" "0115", {"Novation Launchpad Mini MK3 3", 1_uc}},
-		{"1235" "0116", {"Novation Launchpad Mini MK3 4", 1_uc}},
-		{"1235" "0117", {"Novation Launchpad Mini MK3 5", 1_uc}},
-		{"1235" "0118", {"Novation Launchpad Mini MK3 6", 1_uc}},
-		{"1235" "0119", {"Novation Launchpad Mini MK3 7", 1_uc}},
-		{"1235" "011a", {"Novation Launchpad Mini MK3 8", 1_uc}},
-		{"1235" "011b", {"Novation Launchpad Mini MK3 9", 1_uc}},
-		{"1235" "011c", {"Novation Launchpad Mini MK3 10", 1_uc}},
-		{"1235" "011d", {"Novation Launchpad Mini MK3 11", 1_uc}},
-		{"1235" "011e", {"Novation Launchpad Mini MK3 12", 1_uc}},
-		{"1235" "011f", {"Novation Launchpad Mini MK3 13", 1_uc}},
-		{"1235" "0120", {"Novation Launchpad Mini MK3 14", 1_uc}},
-		{"1235" "0121", {"Novation Launchpad Mini MK3 15", 1_uc}},
-		{"1235" "0122", {"Novation Launchpad Mini MK3 16", 1_uc}},
-		{"1235" "0123", {"Novation Launchpad Pro MK3 1", 1_uc}},
-		{"1235" "0124", {"Novation Launchpad Pro MK3 2", 1_uc}},
-		{"1235" "0125", {"Novation Launchpad Pro MK3 3", 1_uc}},
-		{"1235" "0126", {"Novation Launchpad Pro MK3 4", 1_uc}},
-		{"1235" "0127", {"Novation Launchpad Pro MK3 5", 1_uc}},
-		{"1235" "0128", {"Novation Launchpad Pro MK3 6", 1_uc}},
-		{"1235" "0129", {"Novation Launchpad Pro MK3 7", 1_uc}},
-		{"1235" "012a", {"Novation Launchpad Pro MK3 8", 1_uc}},
-		{"1235" "012b", {"Novation Launchpad Pro MK3 9", 1_uc}},
-		{"1235" "012c", {"Novation Launchpad Pro MK3 10", 1_uc}},
-		{"1235" "012d", {"Novation Launchpad Pro MK3 11", 1_uc}},
-		{"1235" "012e", {"Novation Launchpad Pro MK3 12", 1_uc}},
-		{"1235" "012f", {"Novation Launchpad Pro MK3 13", 1_uc}},
-		{"1235" "0130", {"Novation Launchpad Pro MK3 14", 1_uc}},
-		{"1235" "0131", {"Novation Launchpad Pro MK3 15", 1_uc}},
-		{"1235" "0132", {"Novation Launchpad Pro MK3 16", 1_uc}},
-	};
-	map<string, string> const launchpad::android_launchpad_map = {
-		{"Focusrite - Novation Launchpad", "Novation Launchpad"},
-		{"Focusrite - Novation Launchpad S", "Novation Launchpad S"},
-		{"Focusrite - Novation Launchpad Mini", "Novation Launchpad Mini"},
-		{"Focusrite - Novation Launchpad Pro", "Novation Launchpad Pro"},
-		{"Focusrite - Novation Launchpad MK2", "Novation Launchpad MK2"},
-		{"Focusrite - Novation Launchpad X-2", "Novation Launchpad X"},
-		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
-		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
-	};
-	list<tuple<string, string>> const launchpad::macos_launchpad_list = {
-		{"Launchpad", "Novation Launchpad"},
-		{"Launchpad S", "Novation Launchpad S"},
-		{"Launchpad Mini", "Novation Launchpad Mini"},
-		{"Launchpad Pro", "Novation Launchpad Pro"},
-		{"Launchpad MK2", "Novation Launchpad MK2"},
-		{"Launchpad X", "Novation Launchpad X"},
-		{"Launchpad Mini MK3", "Novation Launchpad Mini MK3"},
-		{"Launchpad Pro MK3", "Novation Launchpad Pro MK3"},
-	};
 	
 	unique_ptr<launchpad::LED_global_timer> launchpad::LED_timer = nullptr;
 	set<launchpad*> launchpad::launchpad_list = set<launchpad*>();

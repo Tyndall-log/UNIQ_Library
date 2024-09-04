@@ -7,7 +7,6 @@ project(UNIQ_Library_api)
 set(CMAKE_CXX_STANDARD 20)
 
 function(link_library target)
-	target_link_libraries(${target} INTERFACE juce::juce_core)
 	target_link_libraries(${target} INTERFACE UNIQ_Library_core_interface)
 	target_link_libraries(${target} INTERFACE UNIQ_Library_audio_interface)
 	target_link_libraries(${target} INTERFACE UNIQ_Library_lightshow_interface)

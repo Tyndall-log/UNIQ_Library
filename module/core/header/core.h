@@ -348,9 +348,9 @@ namespace uniq
 	class message_thread
 		: public juce::Thread
 	{
+		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::unique_ptr<juce::MessageManager> mm_ = nullptr;
 		inline static std::shared_ptr<message_thread> instance_ = nullptr;
-		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::mutex mutex_;
 		inline static bool current_thread_to_message_thread_;
 		explicit message_thread(bool current_thread_to_message_thread);
@@ -381,6 +381,7 @@ namespace uniq
 		message_thread(message_thread&&) = delete; //이동 생성자 삭제
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
 		message_thread& operator=(message_thread&&) = delete; //이동 대입 연산자 삭제
+		[[nodiscard]] static std::shared_ptr<message_thread> get_without_creating();
 		[[nodiscard]] static std::shared_ptr<message_thread> get(bool current_thread_to_message_thread = false);
 		static void activate(bool current_thread_to_message_thread = false);
 		static void deactivate();
@@ -438,31 +439,44 @@ namespace uniq
 		std::shared_ptr<message_thread> mt_ = message_thread::get();
 		std::shared_ptr<juce::AudioDeviceManager> device_manager_;
 		std::atomic_flag ready_{};
+		inline static std::weak_ptr<audio_device_manager> global_weak_instance_;
 	protected:
 		audio_device_manager()
 		{
+			log::info("audio_device_manager 초기화 중...");
 			const auto future = mt_->call_async([this] {
-				log::info("AudioDeviceManager 초기화 중...");
 				device_manager_ = std::make_unique<juce::AudioDeviceManager>();
 				device_manager_->initialiseWithDefaultDevices(0, 2);
 				ready_.test_and_set();
 				ready_.notify_all();
-				log::info("AudioDeviceManager 초기화 완료");
+				log::info("audio_device_manager 초기화 완료");
 			});
 			// future.wait();
 		}
 	public:
 		~audio_device_manager()
 		{
-			// log::println("audio_device_manager 소멸자");
+			log::info("audio_device_manager 해제 중...");
 			mt_->call_sync([this] {
-				log::info("AudioDeviceManager 해제 중...");
 				device_manager_.reset();
-				log::info("AudioDeviceManager 해제 완료");
 			});
+			log::info("audio_device_manager 해제 완료");
 		}
 
-		std::shared_ptr<juce::AudioDeviceManager>& get()
+		template<typename... Args>
+		[[nodiscard]] static std::shared_ptr<audio_device_manager> create(Args&&... args) = delete;
+
+		/// @brief 싱글톤 패턴으로 audio_device_manager 객체를 반환합니다.
+		[[nodiscard]] static std::shared_ptr<audio_device_manager> get()
+		{
+			auto instance = global_weak_instance_.lock();
+			if (instance) return instance;
+			instance = ID::create();
+			global_weak_instance_ = instance;
+			return instance;
+		}
+
+		std::shared_ptr<juce::AudioDeviceManager>& get_adm()
 		{
 			return device_manager_;
 		}

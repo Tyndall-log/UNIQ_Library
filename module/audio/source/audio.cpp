@@ -51,7 +51,7 @@ namespace uniq::internal
 		const unique_ptr<AudioFormatReader> reader(format_manager->createReaderFor(std::move(input_stream)));
 		if (reader == nullptr)
 		{
-			log::println("audio_data::load: reader is nullptr");
+			log::error("audio_data::load: reader is nullptr");
 			return nullptr;
 		}
 		auto buffer = AudioBuffer<float>(static_cast<int>(reader->numChannels), static_cast<int>(reader->lengthInSamples));
@@ -1029,7 +1029,7 @@ namespace uniq
 	using namespace core;
 #pragma endregion audio_custom_source
 
-	audio_player::audio_player() : audio_player(audio_device_manager::create()) {}
+	audio_player::audio_player() : audio_player(audio_device_manager::get()) {}
 
 	audio_player::audio_player(const std::shared_ptr<audio_device_manager> &device_manager)
 	{
@@ -1040,13 +1040,13 @@ namespace uniq
 			player_->setSource(custom_source_.get());
 			player_->setGain(0.5f);
 			// player_->setGain(1.f);
-			device_manager_->get()->addAudioCallback(player_.get());
+			device_manager_->get_adm()->addAudioCallback(player_.get());
 		});
 	}
 
 	audio_player::~audio_player()
 	{
-		device_manager_->get()->removeAudioCallback(player_.get());
+		device_manager_->get_adm()->removeAudioCallback(player_.get());
 		player_->setSource(nullptr);
 		custom_source_.reset();
 		player_.reset();
@@ -1158,7 +1158,7 @@ namespace uniq
 		auto data = uniq::internal::audio_data::load(std::move(input_stream), extension, path, name);
 		if (data == nullptr)
 		{
-			log::println("audio_source::audio_load: data is nullptr");
+			log::error("audio_source::audio_load: data is nullptr");
 			return nullptr;
 		}
 		auto source = create();
@@ -1244,7 +1244,7 @@ namespace uniq
 		auto cue_end = *cue_point_it;
 		auto cue_start = *--cue_point_it;
 
-		auto self = ID_manager::get_shared_ptr<audio_source>(ID_get()).value();
+		auto self = ID_manager::get_shared_ptr_o<audio_source>(ID_get()).value();
 		auto segment = audio_segment::create(self, cue_start, cue_end);
 		segment_start_set_.emplace(segment);
 		return segment;
@@ -1280,7 +1280,7 @@ namespace uniq
 		};
 		for (const auto& id : fade_out_target_set_)
 		{
-			const auto& aso = ID_manager::get_shared_ptr<audio_segment>(id);
+			const auto& aso = ID_manager::get_shared_ptr_o<audio_segment>(id);
 			if (!aso)
 			{
 				log::error("fade_out_target_list_에 존재하지 않는 id가 있습니다.");

@@ -75,6 +75,7 @@ namespace uniq
 		if (current_thread_to_message_thread_)
 		{
 			[[maybe_unused]] const auto p = mm_.release();
+			log::info("message_thread stop");
 			return;
 		}
 		const auto result = stopThread(1000);
@@ -109,6 +110,13 @@ namespace uniq
 		mm_.reset();
 		notify(); // 메시지 스레드가 종료되었음을 알림
 		DeletedAtShutdown::deleteAll();
+	}
+
+	std::shared_ptr<message_thread> message_thread::get_without_creating()
+	{
+		lock_guard lock(mutex_);
+		if (instance_) return instance_;
+		return instance_weak_.lock();
 	}
 
 	shared_ptr<message_thread> message_thread::get(const bool current_thread_to_message_thread)

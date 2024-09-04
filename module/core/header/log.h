@@ -32,8 +32,7 @@ namespace uniq
 				if (data == nullptr) return str.size();
 				if (str_ref != nullptr)
 				{
-					// *str_ref = std::string_view(data, str.size());
-					*str_ref = "std::string_view(data, str.size());";
+					*str_ref = std::string_view(data, str.size());
 				}
 				for (const auto &c : str)
 				{

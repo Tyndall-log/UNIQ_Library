@@ -3,6 +3,8 @@
 
 #include "main.h"
 
+#include <random>
+
 using namespace std;
 using namespace juce;
 using namespace uniq;
@@ -10,80 +12,67 @@ using namespace uniq;
 int launchpad_test1()
 {
 	cout << "launchpad_test1" << endl;
-	
 
-	// auto MMT = make_unique<MainMessageThread>(); //메시지 관리 스레드 시작
-	auto MT = message_thread::get();
-	shared_ptr<AudioDeviceManager> ADM;
-	std::promise<shared_ptr<AudioDeviceManager>> adm_promise;
-	MT->call_async([&adm_promise]()
+	auto adm = audio_device_manager::get();
+	auto lm = launchpad_manager::instance_get();
+	auto lpl = lm->launchpad_list_get();
+	cout << "연결할 런치패드 목록:" << endl;
+	for (auto i = 0; i < lpl.size(); i++)
 	{
-		auto ADM = make_shared<AudioDeviceManager>();
-		log::info("AudioDeviceManager 생성");
-		adm_promise.set_value(ADM);
+		cout << "\t[" + to_string(i) + "] : " + lpl[i]->input_kind_name_get() << endl;
+	}
+	if (lpl.empty())
+	{
+		cout << "연결할 런치패드가 없습니다." << endl;
+		return -1;
+	}
+	int index;
+	if (lpl.size() == 1)
+	{
+		index = 0;
+		cout << "런치패드가 하나만 연결되어 있으므로, 자동으로 선택됩니다." << endl;
+	}
+	else
+	{
+		cout << "연결할 런치패드를 선택하세요: ";
+		while (true)
+		{
+			cin >> index;
+			if (cin.fail() || index < 0 || index >= lpl.size())
+			{
+				cin.clear();
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				cout << "잘못된 입력입니다. 다시 입력하세요: ";
+			}
+			else
+			{
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				break;
+			}
+		}
+	}
+	const auto lp = lpl[index];
+	cout << "선택된 런치패드: " << lp->input_kind_name_get() << endl;
+	lp->program_mode_set();
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution dis(0, 255);
+	const auto ibdc = lp->input_button_down_callback_add([&](const uint8_t x, const uint8_t y, const uint8 velocity) {
+		cout << "버튼 눌림: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity) << endl;
+		// lp->velocity_set(x, y, velocity);
+		lp->rgb_set(x, y, dis(gen), dis(gen), dis(gen));
+		});
+	const auto ibuc = lp->input_button_up_callback_add([&](const uint8_t x, const uint8_t y) {
+		cout << "버튼 떼어짐: " + to_string(x) + ", " + to_string(y) << endl;
+		// lp->velocity_set(x, y, 0);
+		lp->rgb_set(x, y, 0, 0, 0);
 	});
-	ADM = adm_promise.get_future().get();
-	
-	auto list = launchpad::get_available_output_list();
-	for (const auto& l : list)
-	{
-		cout << l.name << endl;
-		cout << l.kind_name << endl;
-	}
-	
-	if (list.empty())
-	{
-		cout << "인식된 런치패드 없음." << endl;
-		return 0;
-	}
-	
-	auto lp = launchpad::create(ADM, list[0], list[0]);
-	lp->program_mode_set(true);
-	int callback_id = lp->input_callback_add([](const uint8_t* data, int size)
-	{
-		log::println("MIDI_IN: " + String::toHexString(data, size).toStdString());
-	});
-	
-	//main_launchpad->get_list();
-	auto start = "00h 20h 29h 02h 0Dh 03h"s;
-	for (int i = 0, n = 0; n <= 255;)
-	{
-		//Thread::getCurrentThread()->sleep(1000);
-		//cin >> i;
-		cin.get();
-		for (auto x : views::iota(0, 10))
-			for (auto y : views::iota(0, 10))
-				//main_launchpad->rgb_set((uint8)x, (uint8)y, 255 - n, n, 255 - n);
-				lp->rgb_set((uint8) x, (uint8) y, 255 - n, 255 - n, 255 - n);
-		//main_launchpad->hex_send(start + "03 0E 7F 7F 7F"s);
-		//uint8 sysexdata[] = { 0x00,0x20,0x29,0x02,0x0D,0x03,(uint8)3,(uint8)11,0b0000'1000,0,0 };
-		//uint8 sysexdata[] = { 0x00,0x20,0x29,0x02,0x0D,0x03,(uint8)3,(uint8)11,0b0000'0111,0,0 };
-		//uint8 sysexdata[] = { 0x00,0x20,0x29,0x02,0x0D,0x03,(uint8)3,(uint8)11,0b0000'1000,0,0 };
-		//uint8 sysexdata[] = { 0x00,0x20,0x29,0x02,0x0D,0x03,0x03,0x0E,0x,0,0 };
-//		uint8 sysexdata[] = { 0x00,0x20,0x29,0x02,0x0D,0x08,static_cast<uint8>(127 - n) };
-//		MidiMessage 메시지 = MidiMessage::createSysExMessage(sysexdata, 6 + 5);
-//		main_launchpad->message_send_now(메시지);
-		//MidiMessage 메시지 = MidiMessage::createSysExMessage("002029020D03000B0D010C1517020D"_hex, 15);
-		//main_launchpad->message_send_now(메시지);
-		n += 2;
-	}
-	//return 0;
-	//main_launchpad->
-	string a;
-	cin >> a; //대기
-	
-	//메시지 보내기
-	//uint8 sysexdata[] = { 0x7E, 0x7F, 0x06, 0x01 };
-	//MidiMessage 메시지 = MidiMessage::createSysExMessage(sysexdata, 4);
-	//auto l = "002029020D03000B0D010C1517020D"_hex;
-	//MidiMessage 메시지 = MidiMessage::createSysExMessage("002029020D03000B0D010C1517020D"_hex, 15);
-	//main_launchpad->message_send_now(메시지);
-	//main_launchpad->set_porgream_mode(true);
-	//main_launchpad->set_porgream_mode(false);
-	//auto start = "00h 20h 29h 02h 0Dh 03h"s;
-	//main_launchpad->hex_send(start + "03 0E 7F 7F 7F"s);
-	
-	//main_launchpad.reset();
-	cin >> a; //대기
+
+	cout << "종료하려면 엔터를 누르세요." << endl;
+	cin.get();
+	lp->input_button_down_callback_remove(ibdc);
+	lp->input_button_up_callback_remove(ibuc);
+	lp->program_mode_set(false);
 	return 0;
 }

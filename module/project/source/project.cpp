@@ -740,10 +740,20 @@ namespace uniq::project
 		launchpad_disconnect_all();
 	}
 
+	std::string project::title_get() const
+	{
+		return title_;
+	}
+
 	void project::title_set(const string &title)
 	{
 		title_ = title;
 		core::api::callback_manager.RAC(ID_get(), title);
+	}
+
+	std::string project::producer_name_get() const
+	{
+		return producer_name_;
 	}
 
 	void project::producer_name_set(const string &producer_name)
@@ -757,6 +767,26 @@ namespace uniq::project
 		return player_;
 	}
 
+	shared_ptr<audio_source> project::audio_load(const std::string &path)
+	{
+		auto input_stream = make_unique<FileInputStream>(File(path));
+		if (!input_stream->openedOk())
+		{
+			log::error("오디오 파일 로드 실패: " + path);
+			return nullptr;
+		}
+		const auto extension = path.substr(path.find_last_of('.') + 1);
+		const auto name = path.substr(path.find_last_of('/') + 1);
+		auto audio_source = audio_source::internal::audio_load(std::move(input_stream), extension, path, name);
+		if (!audio_source)
+		{
+			log::error("\"" + name + "\" 오디오 로드 실패");
+			return nullptr;
+		}
+		audio_source_add(audio_source);
+		return audio_source;
+	}
+
 	project::internal::internal(project *uniq) : uniq_(uniq)
 	{
 	}
@@ -768,7 +798,7 @@ namespace uniq::project
 			audio_source::internal::audio_load(std::move(input_stream), extension, path, name);
 		if (!audio_source)
 		{
-			log::warn("\"" + name + "\" 오디오 로드 실패");
+			log::error("\"" + name + "\" 오디오 로드 실패");
 			return nullptr;
 		}
 		uniq_->audio_source_add(audio_source);
@@ -947,6 +977,22 @@ namespace uniq::project
 		// guide_timer_.startTimer(guide_timer_interval_);
 	}
 
+	auto project::guide_position_set(const cue_point_t &cue) -> void
+	{
+		if (!guide_start_)
+		{
+			log::error("가이드가 시작되지 않았습니다.");
+			return;
+		}
+		guide_cue_ = cue;
+		guide_update();
+	}
+
+	auto project::guide_position_get() const -> cue_point_t
+	{
+		return guide_cue_;
+	}
+
 	auto project::guide_pause() -> void
 	{
 		if (!guide_start_)
@@ -993,25 +1039,13 @@ namespace uniq::project
 
 	bool project::launchpad_auto_connect()
 	{
-		auto midi_input_device_info_list = launchpad::get_available_input_list();
-		for (const auto& l : midi_input_device_info_list)
-		{
-			log::info(l.name.toStdString() + " => " + l.kind_name);
-		}
-		auto midi_output_device_info_list = launchpad::get_available_output_list();
-		for (const auto& l : midi_output_device_info_list)
-		{
-			log::info(l.name.toStdString() + " => " + l.kind_name);
-		}
-		if (midi_output_device_info_list.empty() || midi_input_device_info_list.empty())
+		auto launchpad_list = launchpad_manager_->launchpad_list_get();
+		if (launchpad_list.empty())
 		{
 			log::warn("감지된 런치패드가 없습니다.");
 			return false;
 		}
-		const auto& midi_output_device_info = midi_output_device_info_list.empty() ? nullptr : &midi_output_device_info_list[0];
-		const auto& midi_input_device_info = midi_input_device_info_list.empty() ? nullptr : &midi_input_device_info_list[0];
-		const auto& _launchpad = launchpad::create(player_->device_manager_get(), midi_input_device_info, midi_output_device_info);
-		launchpad_connect(_launchpad);
+		launchpad_connect(launchpad_list.front());
 		return true;
 	}
 

@@ -34,7 +34,7 @@ namespace uniq::core
 		static void unregister_ID(id_t id);
 	public:
 		template<typename T>
-		static std::optional<std::shared_ptr<T>> get_shared_ptr(const id_t id)
+		static std::optional<std::shared_ptr<T>> get_shared_ptr_o(const id_t id)
 		{
 			if (id < static_cast<id_t>(api::predefined_ID::last))
 			{
@@ -59,6 +59,14 @@ namespace uniq::core
 			log::error("ID " + std::to_string(id) + " is not registered."
 				+ "Please check if the object is created by "+ typeid(T).name() + "::create().");
 			return std::nullopt;
+		}
+
+		template<typename T>
+		static std::shared_ptr<T> get_shared_ptr(const id_t id)
+		{
+			auto _o = get_shared_ptr_o<T>(id);
+			if (!_o) return nullptr;
+			return _o.value();
 		}
 	};
 

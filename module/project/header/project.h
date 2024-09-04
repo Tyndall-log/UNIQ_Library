@@ -168,6 +168,7 @@ namespace uniq::project
 		std::vector<std::shared_ptr<timeline>> timeline_list_;
 		std::vector<std::shared_ptr<audio_source>> audio_source_list_;
 		std::shared_ptr<audio_player> player_ = audio_player::create();
+		std::shared_ptr<launchpad_manager> launchpad_manager_ = launchpad_manager::instance_get();
 		std::shared_ptr<launchpad> launchpad_;
 		int launchpad_callback_id_{-1};
 		int launchpad_button_down_callback_id_{-1};
@@ -221,7 +222,7 @@ namespace uniq::project
 		[[nodiscard]] std::string producer_name_get() const;
 		void producer_name_set(const std::string& producer_name);
 		[[nodiscard]] std::shared_ptr<audio_player> player_get() const;
-		bool audio_load(const std::string& path);
+		std::shared_ptr<audio_source> audio_load(const std::string &path);
 		struct internal
 		{
 			project* uniq_;
@@ -250,7 +251,7 @@ namespace uniq::project
 		auto guide_start(const cue_point_t &cue = std::chrono::microseconds(0)) -> void;
 		auto guide_resume(const cue_point_t &cue = std::chrono::microseconds(0)) -> void;
 		auto guide_position_set(const cue_point_t &cue) -> void;
-		auto guide_position_get() -> cue_point_t;
+		[[nodiscard]] auto guide_position_get() const -> cue_point_t;
 		auto guide_pause() -> void;
 		auto guide_stop() -> void;
 		bool launchpad_connect(const std::shared_ptr<launchpad> &launchpad);

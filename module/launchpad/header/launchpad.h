@@ -10,20 +10,68 @@
 
 namespace uniq
 {
-	class launchpad : public core::ID<launchpad>
+	class launchpad;
+
+	class launchpad_manager
 	{
-	private:
-		class midi_callback;
-		class LED_global_timer;
-		struct VRGB;
-		
-		static std::set<launchpad*> launchpad_list;
-		static std::unique_ptr<LED_global_timer> LED_timer;
 		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
 		static const std::map<std::string, std::string> android_launchpad_map;
 		static const std::list<std::tuple<std::string, std::string>> macos_launchpad_list;
+	public:
+		class midi_device_info : public juce::MidiDeviceInfo
+		{
+		public:
+			std::string kind_name = "none";
+			explicit midi_device_info(const MidiDeviceInfo&& info);
+			midi_device_info(const MidiDeviceInfo&& info, const juce::String& name);
+		};
+		struct input_output
+		{
+			std::optional<midi_device_info> input;
+			std::optional<midi_device_info> output;
+		};
+		// struct input_output_launchpad : input_output
+  //       {
+  //           std::shared_ptr<launchpad> launchpad;
+  //       };
+	protected:
+		launchpad_manager() = default;
+		~launchpad_manager();
+	private:
+		inline static std::weak_ptr<launchpad_manager> instance_weak_;
+		inline static juce::MidiDeviceListConnection midi_device_list_connection_;
+		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_automatic_map_;
+		// inline static std::map<std::string, input_output> input_output_map_;
+		inline static std::shared_ptr<message_thread> message_thread_;
+		inline static std::shared_ptr<audio_device_manager> audio_device_manager_;
+		inline static std::future<void> launchpad_map_update_future_;
+
+		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
+		static std::string launchpad_device_identifier_get(juce::MidiDeviceInfo& mdi);
+		static auto get_available_input_list() -> std::vector<midi_device_info>;
+		static auto get_available_output_list() -> std::vector<midi_device_info>;
+		static bool launchpad_register(std::shared_ptr<launchpad> lp);
+		static bool launchpad_unregister(std::shared_ptr<launchpad> lp);
+		static void launchpad_map_update();
+		[[nodiscard]] static bool init();
+	public:
+		static std::shared_ptr<launchpad_manager> instance_get();
+		static std::shared_ptr<launchpad_manager> instance_get_without_creating();
+		static auto launchpad_list_get() -> std::vector<std::shared_ptr<launchpad>>;
+	};
+
+	class launchpad : public core::ID<launchpad>
+	{
+		using midi_device_info = launchpad_manager::midi_device_info;
+		using input_output = launchpad_manager::input_output;
+		class midi_callback;
+		class LED_global_timer;
+		struct VRGB;
+
+		static std::set<launchpad*> launchpad_list;
+		static std::unique_ptr<LED_global_timer> LED_timer;
 		static juce::SpinLock mutex;
-		
+
 		std::string midi_input_kind_name;
 		std::string midi_output_kind_name;
 		std::shared_ptr<juce::AudioDeviceManager> deviceManager;
@@ -49,7 +97,7 @@ namespace uniq
 		rgbav_id_array rgbav_grid_current;
 		rgbav_id_array rgbav_grid_target;
 		std::shared_ptr<lightshow::lightshow> lightshow_;
-		
+
 		class midi_callback : public juce::MidiInputCallback
 		{
 			// void(launchpad::*callback_function)(const std::uint8_t*, int) = nullptr;
@@ -65,12 +113,12 @@ namespace uniq
 			// int callback_add(std::function<void(std::uint8_t*, int)> &&callback);
 			// bool callback_remove(int callback_id);
 		};
-		
+
 		class LED_global_timer : public juce::HighResolutionTimer
 		{
 			void hiResTimerCallback() override;
 		};
-		
+
 		struct VRGB
 		{
 			juce::uint8 v; //velocity(0 ~ 127, 0xFF: RGB모드)
@@ -79,25 +127,21 @@ namespace uniq
 			juce::uint8 b;
 			bool operator==(const VRGB&) const = default;
 		};
-		
+
 		void init();
-		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
 		void input_button_callback(const std::uint8_t*, int) const;
 	public:
-		class midi_device_info : public juce::MidiDeviceInfo
-		{
-		public:
-			std::string kind_name = "none";
-			explicit midi_device_info(const juce::MidiDeviceInfo&& info);
-			midi_device_info(const juce::MidiDeviceInfo&& info, const juce::String& name);
-		};
-		
+		//TODO: 커스텀 가능한 런치패드 객체로 변경해야 함(input/output을 수동으로 설정할 수 있도록 해야 함)
+		template <typename... K>
+		static std::shared_ptr<launchpad> create(K&&... args) = delete;
+
 		//launchpad();
 		//launchpad(String kind);
 		//launchpad(std::shared_ptr<juce::AudioDeviceManager>, const midi_device_info&);
 		launchpad(std::shared_ptr<juce::AudioDeviceManager>&);
 		launchpad(std::shared_ptr<juce::AudioDeviceManager>&, const midi_device_info&, const midi_device_info&);
 		launchpad(const std::shared_ptr<audio_device_manager>&, const midi_device_info*, const midi_device_info*);
+		launchpad(const std::shared_ptr<audio_device_manager>&, const input_output&);
 		~launchpad();
 		
 		bool midi_input_set(const midi_device_info&);
@@ -125,10 +169,12 @@ namespace uniq
 		[[nodiscard]]
 		auto input_button_up_callback_add(std::function<void(std::uint8_t, std::uint8_t)>&& callback) -> int;
 		bool input_button_up_callback_remove(int callback_id);
-		static auto get_available_input_list() -> std::vector<midi_device_info>;
-		static auto get_available_output_list() -> std::vector<midi_device_info>;
-		std::string input_identifier_get() const;
-		std::string output_identifier_get() const;
+		[[nodiscard]] std::string input_identifier_get() const;
+		[[nodiscard]] std::string output_identifier_get() const;
+		[[nodiscard]] std::string input_kind_name_get() const;
+		[[nodiscard]] std::string output_kind_name_get() const;
+		[[nodiscard]] std::string input_name_get() const;
+		[[nodiscard]] std::string output_name_get() const;
 	};
 	
 	std::vector<juce::uint8> hexStringToBytes(const juce::String&);

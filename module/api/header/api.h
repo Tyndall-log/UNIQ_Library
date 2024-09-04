@@ -21,7 +21,7 @@ namespace uniq::api
 	public:
 		explicit API_raii(const id_t id, const log::slm_t &location = log::slm_t{})
 		{
-			auto _ptr_o = core::ID_manager::get_shared_ptr<T>(id);
+			auto _ptr_o = core::ID_manager::get_shared_ptr_o<T>(id);
 			if (!_ptr_o)
 			{
 				log::error("API call failed: invalid ID");

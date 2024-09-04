@@ -6,15 +6,15 @@
 using namespace std;
 using namespace uniq;
 
-int api_test1()
+int api_unipack_load_example()
 {
 	cout << "api_test1" << endl;
-	auto id = workspace::workspace_create();
-	auto project_id = unipack::unipack_load(id, test_path.c_str());
+	const auto workspace_id = workspace::workspace_create();
+	const auto project_id = unipack::unipack_load(workspace_id, test_path.c_str());
 	log::info("Project ID: " + to_string(project_id));
-	int a;
-	cin >> a;
-	workspace::workspace_destroy(id);
+	project::launchpad_auto_connect(project_id);
+	cin.get();
+	workspace::workspace_destroy(workspace_id);
 	return 0;
 }
 

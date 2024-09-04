@@ -77,19 +77,19 @@ int core_test1()
 	std::cout << "sizeof(a): " << sizeof(a) << "\n";
 	std::cout << "sizeof(b): " << sizeof(b) << "\n";
 	
-	auto a_from_ID = ID_manager::get_shared_ptr<A>(a->ID_get()).value_or(nullptr);
+	auto a_from_ID = ID_manager::get_shared_ptr_o<A>(a->ID_get()).value_or(nullptr);
 	if (a_from_ID)
 	{
 		std::cout << "ID " << a->ID_get() << ": " << a_from_ID->get_name() << "\n";
 	}
 	
-	auto b_from_ID = ID_manager::get_shared_ptr<B>(b->ID_get()).value_or(nullptr);
+	auto b_from_ID = ID_manager::get_shared_ptr_o<B>(b->ID_get()).value_or(nullptr);
 	if (b_from_ID)
 	{
 		std::cout << "ID " << b->ID_get() << ": " << b_from_ID->get_name() << "\n";
 	}
 
-	auto test = ID_manager::get_shared_ptr<B>(a->ID_get()).value_or(nullptr);
+	auto test = ID_manager::get_shared_ptr_o<B>(a->ID_get()).value_or(nullptr);
 	if (test)
 	{
 		std::cout << "ID " << a->ID_get() << ": " << test->get_name() << "\n";
@@ -100,7 +100,7 @@ int core_test1()
 	}
 	
 	auto id_2 = 5;
-	auto test2 = ID_manager::get_shared_ptr<A>(id_2).value_or(nullptr);
+	auto test2 = ID_manager::get_shared_ptr_o<A>(id_2).value_or(nullptr);
 	if (test)
 	{
 		std::cout << "ID " << id_2 << ": " << test->get_name() << "\n";
