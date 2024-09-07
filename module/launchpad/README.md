@@ -7,12 +7,12 @@ SPDX-License-Identifier: LGPL-3.0-linking-exception
 
 ## 소개
 
-**Launchpad Module**은 **UNIQ_Library**(Launchpad Connector)의 런치패드 모듈입니다.  
+**Launchpad Module**은 **UNIQ_Library**의 런치패드 모듈입니다.  
 
 **Launchpad Module**은 모든 Novation 런치패드[^각주_런치패드]를 쉽고 편하게 지원하기 위한 고수준 함수를 제공합니다.  
 특히 다중 런치패드를 지원하며, 크로스 플랫폼을 지원하도록 개발되었습니다.
 
-> **Launchpad Module**은 **Core Module**을 필요로 합니다.
+> **Launchpad Module**은 **Core Module**과 **Lightshow Module**을 필요로 합니다.
 
 ## 주요 기능
 
@@ -27,7 +27,7 @@ SPDX-License-Identifier: LGPL-3.0-linking-exception
 - 다중 런치패드 동시 지원
 - 런치패드 전용 간편한 고수준 함수
 
-[^각주_런치패드]: 2023년 12월 이전에 출시된 모든 런치패드 기종
+[^각주_런치패드]: 2024년 9월 이전에 출시된 모든 런치패드 기종
 
 ## 폴더 구조
 
@@ -42,66 +42,55 @@ SPDX-License-Identifier: LGPL-3.0-linking-exception
 여기서는 간단한 사용 예시를 소개합니다.  
 상세 사용 예시는 `console_test` 폴더 내의 '*.cpp' 파일들을 참고하세요.
 
-> **Launchpad Module**은 **Core Module**을 사용하기 때문에 **Core Module**의 사용 예시를 먼저 보시는 것을 추천합니다.
+> **Launchpad Module**은 **Core Module**과 **Lightshow Module**을 사용하기 때문에 두 모듈의 사용 예시를 먼저 보시는 것을 권장합니다.
 
 ### 런치패드 연결
 
 ```cpp
+#include <random>
+#include "launchpad.h"
+
 using namespace std;
 using namespace uniq;
 
 int main()
 {
-	auto MMT = make_unique<MainMessageThread>(); //메시지 관리 스레드 시작
-	auto ADM = make_unique<AutoDeviceManager>(); //디바이스 자동 관리 시작
-	
-	auto input_list = launchpad::get_available_input_list(); //사용 가능한 입력 목록
-	if (0 < input_list.size())
+	auto adm = audio_device_manager::get();
+	auto lm = launchpad::launchpad_manager::instance_get();
+	auto lpl = lm->launchpad_list_get();
+	cout << "연결할 런치패드 목록:" << endl;
+	for (auto i = 0; i < lpl.size(); i++)
 	{
-		log::println("midi 입력 목록: ");
-		for(auto i = 0; i < input_list.size(); ++i)
-		{
-			auto l = input_list[i];
-			log::println("[" + to_string(i) + "]: " + l.name.toStdString());
-			log::println("    -> id: " + l.identifier.toStdString());
-		}
+		cout << "\t[" + to_string(i) + "] : " + lpl[i]->input_kind_name_get() << endl;
 	}
-	else
+	if (lpl.empty())
 	{
-		log::println("사용 가능한 입력 없음.");
+		cout << "연결할 런치패드가 없습니다." << endl;
+		return -1;
 	}
-	
-	auto output_list = launchpad::get_available_output_list(); //사용 가능한 출력 목록
-	if (0 < output_list.size())
-	{
-		log::println("midi 출력 목록: ");
-		for(auto i = 0; i < output_list.size(); ++i)
-		{
-			auto l = output_list[i];
-			log::println("[" + to_string(i) + "]: " + l.name.toStdString());
-			log::println("    -> id: " + l.identifier.toStdString());
-		}
-	}
-	else
-	{
-		log::println("사용 가능한 출력 없음.");
-	}
-	
-	if (input_list.size() <= 0 || output_list.size() <= 0)
-	{
-		log::println("감지된 런치패드 없음.");
-		return 0;
-	}
-	
-	auto lp = launchpad::create(ADM, input_list[0], output_list[0]); //첫 번째 입력, 출력을 사용하여 런치패드 연결 생성
-	lp->program_mode_set(true); //프로그래머 모드 활성화
-	lp->input_callback_set([](uint8* data, int size) //입력 콜백 설정
-	{
-		log::println("MIDI_IN: " + String::toHexString(data, size).toStdString()); //입력 메시지 출력
+	const auto lp = lpl[0]; // 첫 번째 런치패드 선택
+	cout << "선택된 런치패드: " << lp->input_kind_name_get() << endl;
+	lp->program_mode_set();
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_int_distribution dis(0, 255);
+	const auto ibdc = lp->input_button_down_callback_add([&](const uint8_t x, const uint8_t y, const uint8_t velocity) {
+		cout << "버튼 눌림: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity) << endl;
+		// lp->velocity_set(x, y, velocity);
+		lp->rgb_set(x, y, dis(gen), dis(gen), dis(gen));
+		});
+	const auto ibuc = lp->input_button_up_callback_add([&](const uint8_t x, const uint8_t y) {
+		cout << "버튼 떼어짐: " + to_string(x) + ", " + to_string(y) << endl;
+		// lp->velocity_set(x, y, 0);
+		lp->rgb_set(x, y, 0, 0, 0);
 	});
-	
-	int i = 0;
-	cin >> i; //입력 대기
+
+	cout << "종료하려면 엔터를 누르세요." << endl;
+	cin.get();
+	lp->input_button_down_callback_remove(ibdc);
+	lp->input_button_up_callback_remove(ibuc);
+	lp->program_mode_set(false);
 	
 	return 0;
 }

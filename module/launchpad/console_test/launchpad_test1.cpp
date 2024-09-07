@@ -6,7 +6,6 @@
 #include <random>
 
 using namespace std;
-using namespace juce;
 using namespace uniq;
 
 int launchpad_test1()
@@ -14,7 +13,7 @@ int launchpad_test1()
 	cout << "launchpad_test1" << endl;
 
 	auto adm = audio_device_manager::get();
-	auto lm = launchpad_manager::instance_get();
+	auto lm = launchpad::launchpad_manager::instance_get();
 	auto lpl = lm->launchpad_list_get();
 	cout << "연결할 런치패드 목록:" << endl;
 	for (auto i = 0; i < lpl.size(); i++)
@@ -58,7 +57,7 @@ int launchpad_test1()
 	std::random_device rd;
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution dis(0, 255);
-	const auto ibdc = lp->input_button_down_callback_add([&](const uint8_t x, const uint8_t y, const uint8 velocity) {
+	const auto ibdc = lp->input_button_down_callback_add([&](const uint8_t x, const uint8_t y, const uint8_t velocity) {
 		cout << "버튼 눌림: " + to_string(x) + ", " + to_string(y) + ", " + to_string(velocity) << endl;
 		// lp->velocity_set(x, y, velocity);
 		lp->rgb_set(x, y, dis(gen), dis(gen), dis(gen));

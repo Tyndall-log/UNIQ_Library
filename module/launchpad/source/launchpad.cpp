@@ -8,9 +8,9 @@
 using namespace std;
 using namespace juce;
 
-namespace uniq
+namespace uniq::launchpad
 {
-	map<string, tuple<string, uint8>> const launchpad_manager::VPID_map = {
+	map<string, tuple<string, uint8_t>> const launchpad_manager::VPID_map = {
 		//1235 -> Focusrite-Novation
 		{"1235" "000e", {"Novation Launchpad", 0_uc}},
 		{"1235" "0020", {"Novation Launchpad S", 0_uc}},
@@ -279,6 +279,7 @@ namespace uniq
 				if (!input_output_map.contains(lam_it_k))
 				{
 					log::info(lam_it_v->input_kind_name_get() + "가 연결이 끊어졌습니다.");
+					RAC(lam_it_v, false);
 					lam_it = launchpad_automatic_map_.erase(lam_it);
 					input_output_remove_list.push_back(lam_it_k);
 					continue;
@@ -290,7 +291,8 @@ namespace uniq
 				if (!launchpad_automatic_map_.contains(k))
 				{
 					log::info(v.input->kind_name + "가 연결 되었습니다.");
-					auto lp = launchpad::ID::create(adm, v.input.value(), v.output.value());
+					const auto lp = launchpad::ID::create(adm, v.input.value(), v.output.value());
+					RAC(lp, true);
 					launchpad_automatic_map_[k] = lp;
 					input_output_add_list.push_back(k);
 				}
@@ -313,6 +315,42 @@ namespace uniq
 			log::info("launchpad_manager 초기화 완료");
 		});
 		return true;
+	}
+
+	void launchpad_manager::RAC(const std::shared_ptr<launchpad> &lp, bool connect_flag)
+	{
+		using namespace uniq::core::api;
+		struct connect_data
+		{
+			id_t id_;
+			bool connect_flag_;
+			void* input_name_;
+			void* input_kind_name_;
+			void* input_identifier_;
+			void* output_name_;
+			void* output_kind_name_;
+			void* output_identifier_;
+			~connect_data()
+			{
+				free(input_name_);
+				free(input_kind_name_);
+				free(input_identifier_);
+				free(output_name_);
+				free(output_kind_name_);
+				free(output_identifier_);
+			}
+		};
+		const auto cd = new connect_data{
+			lp->ID_get(),
+			connect_flag,
+			strdup(lp->input_name_get().c_str()),
+			strdup(lp->input_kind_name_get().c_str()),
+			strdup(lp->input_identifier_get().c_str()),
+			strdup(lp->output_name_get().c_str()),
+			strdup(lp->output_kind_name_get().c_str()),
+			strdup(lp->output_identifier_get().c_str())
+		};
+		callback_manager.RAC(static_cast<id_t>(predefined_ID::launchpad_manager), cd);
 	}
 
 	std::shared_ptr<launchpad_manager> launchpad_manager::instance_get()
@@ -344,6 +382,14 @@ namespace uniq
 		if (launchpad_map_update_future_.valid())
 		{
 			launchpad_map_update_future_.wait();
+		}
+		else
+		{
+			if (instance_weak_.expired())
+			{
+				log::error("launchpad_manager가 초기화되지 않았습니다.");
+				return {};
+			}
 		}
 		auto range = launchpad_automatic_map_ | std::views::values;
 		return {range.begin(), range.end()};
@@ -442,7 +488,7 @@ namespace uniq
 			launchpad_list.insert(this);
 			LED_grid_current = vector<vector<VRGB>>(LED_w, vector<VRGB>(LED_h));
 			LED_grid_target = vector<vector<VRGB>>(LED_w, vector<VRGB>(LED_h));
-			LED_raw_data = make_unique<uint8[]>(static_cast<size_t>(LED_w) * LED_h * 5 + 6);
+			LED_raw_data = make_unique<uint8_t[]>(static_cast<size_t>(LED_w) * LED_h * 5 + 6);
 			copy_n("00'20'29'02'0D'03"_hex, 6, LED_raw_data.get()); //기본 명령어 헤더
 			automatic_transmission = true;
 			immediate_transmission = false;
@@ -520,7 +566,7 @@ namespace uniq
 		return true;
 	}
 	
-	void launchpad::message_send_now(juce::MidiMessage& message)
+	void launchpad::message_send_now(MidiMessage& message)
 	{
 		if (!output)
 		{
@@ -530,7 +576,7 @@ namespace uniq
 		output->sendMessageNow(message);
 	}
 	
-	void launchpad::hex_send(const juce::String& hex)
+	void launchpad::hex_send(const String& hex)
 	{
 		if (!output) return;
 		auto k = hexStringToBytes(hex);
@@ -538,7 +584,7 @@ namespace uniq
 		message_send_now(m);
 	}
 	
-	void launchpad::hex_send(const juce::uint8* hex, size_t length)
+	void launchpad::hex_send(const uint8_t* hex, size_t length)
 	{
 		if (!output) return;
 		auto m = MidiMessage::createSysExMessage(hex, static_cast<int>(length));
@@ -602,7 +648,7 @@ namespace uniq
 					if (t_xy.v == 0xFF)
 					{
 						*p++ = 0x03;
-						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = static_cast<uint8_t>(y * 10 + x);
 						*p++ = t_xy.r;
 						*p++ = t_xy.g;
 						*p++ = t_xy.b;
@@ -610,7 +656,7 @@ namespace uniq
 					else
 					{
 						*p++ = 0x00;
-						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = static_cast<uint8_t>(y * 10 + x);
 						*p++ = t_xy.v;
 					}
 				}
@@ -619,7 +665,7 @@ namespace uniq
 					if (!t2_xyc.is_velocity())
 					{
 						*p++ = 0x03;
-						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = static_cast<uint8_t>(y * 10 + x);
 						*p++ = t2_xyc.r / 2;
 						*p++ = t2_xyc.g / 2;
 						*p++ = t2_xyc.b / 2;
@@ -627,7 +673,7 @@ namespace uniq
 					else
 					{
 						*p++ = 0x00;
-						*p++ = static_cast<uint8>(y * 10 + x);
+						*p++ = static_cast<uint8_t>(y * 10 + x);
 						*p++ = t2_xyc.velocity_get();
 						// if (x==1 && y==1)
 						// {
@@ -672,7 +718,7 @@ namespace uniq
 		}
 	}
 
-	void launchpad::rgb_set(const uint8 x, const uint8 y, const uint8 r, const uint8 g, const uint8 b)
+	void launchpad::rgb_set(const uint8_t x, const uint8_t y, const uint8_t r, const uint8_t g, const uint8_t b)
 	{
 		if (LED_w < x || LED_h < y)
 		{
@@ -680,22 +726,22 @@ namespace uniq
 			return;
 		}
 		SpinLock::ScopedLockType lock(mutex);
-		LED_grid_target[x][y] = VRGB{ 0xFF,static_cast<uint8>(r >> 1),static_cast<uint8>(g >> 1),static_cast<uint8>(b >> 1) };
+		LED_grid_target[x][y] = VRGB{ 0xFF,static_cast<uint8_t>(r >> 1),static_cast<uint8_t>(g >> 1),static_cast<uint8_t>(b >> 1) };
 		if (immediate_transmission)
 		{
 			auto p = LED_raw_data.get() + 6;
 			*p++ = 0x03;
-			*p++ = static_cast<uint8>(y * 10 + x);
+			*p++ = static_cast<uint8_t>(y * 10 + x);
 			*p++ = r;
 			*p++ = g;
 			*p++ = b;
 			auto m = MidiMessage::createSysExMessage(LED_raw_data.get(), static_cast<int>(p - LED_raw_data.get()));
 			output->sendMessageNow(m);
-			LED_grid_current[x][y] = VRGB{ 0xFF,static_cast<uint8>(r >> 1),static_cast<uint8>(g >> 1),static_cast<uint8>(b >> 1) };
+			LED_grid_current[x][y] = VRGB{ 0xFF,static_cast<uint8_t>(r >> 1),static_cast<uint8_t>(g >> 1),static_cast<uint8_t>(b >> 1) };
 		}
 	}
 	
-	void launchpad::velocity_set(const uint8 x, const uint8 y, const uint8 v)
+	void launchpad::velocity_set(const uint8_t x, const uint8_t y, const uint8_t v)
 	{
 		if (LED_w < x || LED_h < y)
 		{
@@ -708,7 +754,7 @@ namespace uniq
 		{
 			auto p = LED_raw_data.get() + 6;
 			*p++ = 0x00;
-			*p++ = static_cast<uint8>(y * 10 + x);
+			*p++ = static_cast<uint8_t>(y * 10 + x);
 			*p++ = v;
 			auto m = MidiMessage::createSysExMessage(LED_raw_data.get(), static_cast<int>(p - LED_raw_data.get()));
 			output->sendMessageNow(m);
@@ -813,16 +859,16 @@ namespace uniq
 		return output->getName().toStdString();
 	}
 
-	vector<uint8> hexStringToBytes(const String& input)
+	vector<uint8_t> hexStringToBytes(const String& input)
 	{
-		vector<uint8> result;
+		vector<uint8_t> result;
 		for (int i = 0; i < input.length(); i++)
 		{
 			if (isxdigit(input[i]))
 			{
 				// 유효한 16진수 문자인지 체크
 				// 두 문자씩 읽어서 uint8_t 타입으로 변환
-				uint8 byte = (uint8)stoi(input.substring(i, i + 2).toStdString(), nullptr, 16);
+				uint8_t byte = static_cast<uint8_t>(stoi(input.substring(i, i + 2).toStdString(), nullptr, 16));
 				result.push_back(byte);
 				i++; // 한 바이트씩 읽기 위해 인덱스를 1 증가
 			}

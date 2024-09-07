@@ -5,6 +5,11 @@
 #include "log.h"
 #ifdef ANDROID
 #include <android/log.h>
+#elif __APPLE__
+#include <TargetConditionals.h>
+#if defined(TARGET_OS_IOS)
+#include <syslog.h>
+#endif
 #endif
 
 using namespace std;

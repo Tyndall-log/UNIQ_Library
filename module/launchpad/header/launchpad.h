@@ -8,7 +8,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 
-namespace uniq
+namespace uniq::launchpad
 {
 	class launchpad;
 
@@ -17,6 +17,7 @@ namespace uniq
 		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
 		static const std::map<std::string, std::string> android_launchpad_map;
 		static const std::list<std::tuple<std::string, std::string>> macos_launchpad_list;
+
 	public:
 		class midi_device_info : public juce::MidiDeviceInfo
 		{
@@ -30,17 +31,16 @@ namespace uniq
 			std::optional<midi_device_info> input;
 			std::optional<midi_device_info> output;
 		};
-		// struct input_output_launchpad : input_output
-  //       {
-  //           std::shared_ptr<launchpad> launchpad;
-  //       };
+
 	protected:
 		launchpad_manager() = default;
 		~launchpad_manager();
+
 	private:
 		inline static std::weak_ptr<launchpad_manager> instance_weak_;
 		inline static juce::MidiDeviceListConnection midi_device_list_connection_;
 		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_automatic_map_;
+		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_map_;
 		// inline static std::map<std::string, input_output> input_output_map_;
 		inline static std::shared_ptr<message_thread> message_thread_;
 		inline static std::shared_ptr<audio_device_manager> audio_device_manager_;
@@ -54,6 +54,8 @@ namespace uniq
 		static bool launchpad_unregister(std::shared_ptr<launchpad> lp);
 		static void launchpad_map_update();
 		[[nodiscard]] static bool init();
+		static void RAC(const std::shared_ptr<launchpad> &lp, bool connect_flag);
+
 	public:
 		static std::shared_ptr<launchpad_manager> instance_get();
 		static std::shared_ptr<launchpad_manager> instance_get_without_creating();
@@ -151,8 +153,8 @@ namespace uniq
 		void hex_send(const juce::uint8*, std::size_t);
 		void LED_send();
 		void rgbav_grid_calculate();
-		void rgb_set(juce::uint8, juce::uint8, juce::uint8, juce::uint8, juce::uint8);
-		void velocity_set(juce::uint8, juce::uint8, juce::uint8);
+		void rgb_set(std::uint8_t, std::uint8_t, std::uint8_t, std::uint8_t, std::uint8_t);
+		void velocity_set(std::uint8_t, std::uint8_t, std::uint8_t);
 		void program_mode_set(bool = true);
 		void automatic_transmission_set(bool = true);
 		void immediate_transmission_set(bool = true);

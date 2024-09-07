@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-3.0-linking-exception
 
 ## 소개
 
-**Core Module**은 **UNIQ_Library**(Launchpad Connector)의 핵심 모듈입니다.
+**Core Module**은 **UNIQ_Library**의 핵심 모듈입니다.
 
 **Core Module**은 객체 소유권 관리, 객체 ID 번호 할당 및 ID 번호로 객체 특정, 상하위 객체의 연결 관리,
 상하위 객체의 상속 여부에 따른 변수 값 자동 동기화, 메시지 스레드 생성 등의 기능을 제공합니다.
@@ -249,7 +249,7 @@ int main()
 
 ### 메시지 스레드 생성
 
-메시지 스레드 생성은 `MainMessageThread` 클래스를 생성하면 됩니다.
+메시지 스레드 생성은 `message_thread` 클래스를 생성하면 됩니다.
 
 ```cpp
 using namespace std;
@@ -258,7 +258,7 @@ using namespace uniq;
 int main()
 {
 	{
-		auto MMT = make_unique<MainMessageThread>(); //생성과 동시에 메시지 관리 스레드 시작됩니다.
+		auto mm = message_thread::get(); //생성과 동시에 메시지 관리 스레드 시작됩니다.
 	} // 범위를 벗어나면서 메시지 관리 스레드가 종료됩니다.
 	return 0;
 }

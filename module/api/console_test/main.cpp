@@ -32,8 +32,8 @@ int main(const int argc, const char* argv[])
 	auto mm = message_thread::get(true);
 
 	auto t = std::thread([&] {
-		api_unipack_load_example();
-		// api_test2();
+		// api_unipack_load_example();
+		api_test2();
 		mm.reset();
 	});
 

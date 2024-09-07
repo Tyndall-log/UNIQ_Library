@@ -86,7 +86,9 @@ API int test1(const int a, const int b)
 
 API const char* log_get()
 {
-	return log::get().c_str();
+	const auto& l = log::get();
+	if (l.empty()) return nullptr;
+	return l.c_str();
 }
 
 API void log_clear()

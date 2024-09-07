@@ -333,26 +333,20 @@ namespace uniq
 			}
 		}
 	};
-	
-	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
-	class MainMessageThread : public juce::Thread
-	{
-	public:
-		MainMessageThread();
-		~MainMessageThread() override;
-		
-		void run() override;
-	};
 
 	//콘솔에서 메인 스레드와 독립적으로 메시지 이벤트 처리할 수 있도록 하는 클래스
-	class message_thread
-		: public juce::Thread
+	class message_thread : public juce::Thread
 	{
 		inline static std::weak_ptr<message_thread> instance_weak_;
 		inline static std::unique_ptr<juce::MessageManager> mm_ = nullptr;
 		inline static std::shared_ptr<message_thread> instance_ = nullptr;
 		inline static std::mutex mutex_;
 		inline static bool current_thread_to_message_thread_;
+#ifdef __APPLE__
+		inline static bool cttmt_default = true;
+#else
+		inline static bool cttmt_default = false;
+#endif
 		explicit message_thread(bool current_thread_to_message_thread);
 		void run() override;
 		template<typename Func, typename Promise>
@@ -382,7 +376,7 @@ namespace uniq
 		message_thread& operator=(const message_thread&) = delete; //복사 대입 연산자 삭제
 		message_thread& operator=(message_thread&&) = delete; //이동 대입 연산자 삭제
 		[[nodiscard]] static std::shared_ptr<message_thread> get_without_creating();
-		[[nodiscard]] static std::shared_ptr<message_thread> get(bool current_thread_to_message_thread = false);
+		[[nodiscard]] static std::shared_ptr<message_thread> get(bool current_thread_to_message_thread = cttmt_default);
 		static void activate(bool current_thread_to_message_thread = false);
 		static void deactivate();
 		template<typename Func>

@@ -161,7 +161,7 @@ namespace uniq::project
 	{
 		const API_raii<project> _project(project_id);
 		if (!_project) return false;
-		const auto _launchpad = core::ID_manager::get_shared_ptr<launchpad>(launchpad_id);
+		const auto _launchpad = core::ID_manager::get_shared_ptr<launchpad::launchpad>(launchpad_id);
 		if (!_launchpad) return false;
 		return _project->launchpad_connect(_launchpad);
 	}

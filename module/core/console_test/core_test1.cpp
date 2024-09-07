@@ -60,8 +60,8 @@ public:
 int core_test1()
 {
 	cout << "Hello World!\n";
-	
-	MainMessageThread MMT;
+
+	auto mm = message_thread::get();
 	
 	auto str = String("Hello juce!");
 	cout << str << "\n";

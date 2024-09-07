@@ -248,7 +248,7 @@ namespace uniq::unipack
 					}
 					else
 					{
-						const auto hex = hexStringToBytes(led_color_hex);
+						const auto hex = launchpad::hexStringToBytes(led_color_hex);
 						if (hex.size() != 3)
 						{
 							log::warn("on 명령어에 HEX 색상이 잘못되었습니다: \"" + line.toStdString() + "\"");

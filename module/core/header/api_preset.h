@@ -19,6 +19,7 @@ namespace uniq::core::api
 		#ifdef UNIQ_DLL_API
 		create, // 새로운 ID 객체가 생성될 때 사용합니다.
 		destroy, // 기존 ID 객체가 소멸될 때 사용합니다.
+		launchpad_manager, // launchpad_manager의 ID입니다.
 		#endif
 		last, // ID_manager에서 해당 값부터 ID를 생성합니다.
 	};

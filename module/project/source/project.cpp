@@ -1018,7 +1018,7 @@ namespace uniq::project
 		// guide_timer_.stopTimer();
 	}
 
-	bool project::launchpad_connect(const std::shared_ptr<launchpad> &launchpad)
+	bool project::launchpad_connect(const std::shared_ptr<launchpad::launchpad> &launchpad)
 	{
 		launchpad_ = launchpad;
 		launchpad_->program_mode_set(true);
@@ -1052,7 +1052,7 @@ namespace uniq::project
 	bool project::launchpad_disconnect_all()
 	{
 		if (!launchpad_) return false;
-		launchpad_->program_mode_set(false);
+		// launchpad_->program_mode_set(false); //TODO: 더 이상 사용되지 않은 런치패드에 한해서 프로그램 모드 해제
 		launchpad_->input_callback_remove(launchpad_callback_id_);
 		launchpad_->input_button_down_callback_remove(launchpad_button_down_callback_id_);
 		launchpad_->input_button_up_callback_remove(launchpad_button_up_callback_id_);

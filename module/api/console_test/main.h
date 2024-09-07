@@ -4,6 +4,7 @@
 #pragma once
 
 #include "api.h"
+#include "api_launchpad.h"
 #include "api_project.h"
 #include "api_unipack.h"
 #include "api_workspace.h"

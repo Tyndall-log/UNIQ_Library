@@ -23,31 +23,6 @@ namespace uniq
 		}
 	}
 #pragma endregion hierarchy
-	
-	/*template<typename T>
-	SpinLock ID<T>::lock;*/
-	
-	MainMessageThread::MainMessageThread() : Thread("UNIQ_MessageThread")
-	{
-		startThread();
-		log::println(wait(1000) ? "MainMessageThread start" : "MainMessageThread fail");
-	}
-	
-	MainMessageThread::~MainMessageThread()
-	{
-		auto mm = MessageManager::getInstanceWithoutCreating();
-		if (!mm) return;
-		mm->stopDispatchLoop();
-		log::println("MainMessageThread stop");
-		stopThread(1000);
-	}
-	
-	void MainMessageThread::run()
-	{
-		auto mm = unique_ptr<MessageManager>(MessageManager::getInstance());
-		notify();
-		mm->runDispatchLoop();
-	}
 
 	message_thread::message_thread(const bool current_thread_to_message_thread)
 		: Thread("UNIQ_MessageThread")
@@ -71,13 +46,17 @@ namespace uniq
 	message_thread::~message_thread()
 	{
 		if (!mm_) return;
-		mm_->stopDispatchLoop();
 		if (current_thread_to_message_thread_)
 		{
-			[[maybe_unused]] const auto p = mm_.release();
+			// [[maybe_unused]] const auto p = mm_.release();
+			mm_.reset();
 			log::info("message_thread stop");
 			return;
 		}
+		call_sync([] {
+			mm_->stopDispatchLoop();
+		});
+		[[maybe_unused]]
 		const auto result = stopThread(1000);
 		log::info(result ? "message_thread stop" : "message_thread stop fail");
 	}
@@ -100,6 +79,9 @@ namespace uniq
 		jobject handler = env->NewObject(handlerClass, handlerConstructor, env->CallStaticObjectMethod(looperClass, env->GetStaticMethodID(looperClass, "myLooper", "()Landroid/os/Looper;")));
 #endif
 		mm_ = unique_ptr<MessageManager>(MessageManager::getInstance());
+		mm_->callAsync([] {
+			mm_->setCurrentThreadAsMessageThread();
+		});
 		notify(); // 메시지 스레드가 시작되었음을 알림
 #if defined(ANDROID)
 		env->CallStaticVoidMethod(looperClass, loopMethod);
@@ -109,7 +91,7 @@ namespace uniq
 #endif
 		mm_.reset();
 		notify(); // 메시지 스레드가 종료되었음을 알림
-		DeletedAtShutdown::deleteAll();
+		// DeletedAtShutdown::deleteAll();
 	}
 
 	std::shared_ptr<message_thread> message_thread::get_without_creating()

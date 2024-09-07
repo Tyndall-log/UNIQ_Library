@@ -168,8 +168,8 @@ namespace uniq::project
 		std::vector<std::shared_ptr<timeline>> timeline_list_;
 		std::vector<std::shared_ptr<audio_source>> audio_source_list_;
 		std::shared_ptr<audio_player> player_ = audio_player::create();
-		std::shared_ptr<launchpad_manager> launchpad_manager_ = launchpad_manager::instance_get();
-		std::shared_ptr<launchpad> launchpad_;
+		std::shared_ptr<launchpad::launchpad_manager> launchpad_manager_ = launchpad::launchpad_manager::instance_get();
+		std::shared_ptr<launchpad::launchpad> launchpad_;
 		int launchpad_callback_id_{-1};
 		int launchpad_button_down_callback_id_{-1};
 		int launchpad_button_up_callback_id_{-1};
@@ -254,7 +254,7 @@ namespace uniq::project
 		[[nodiscard]] auto guide_position_get() const -> cue_point_t;
 		auto guide_pause() -> void;
 		auto guide_stop() -> void;
-		bool launchpad_connect(const std::shared_ptr<launchpad> &launchpad);
+		bool launchpad_connect(const std::shared_ptr<launchpad::launchpad> &launchpad);
 		bool launchpad_auto_connect();
 		bool launchpad_disconnect_all();
 		void pad_button_down(std::uint8_t x, std::uint8_t y, std::uint8_t velocity);

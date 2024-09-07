@@ -91,13 +91,32 @@ c++20을 지원하는 컴파일러[^각주_컴파일러]
 
 Windows 또는 macOS 환경에서 cmake로 구성하는 것을 권장합니다.
 아래 cmake 옵션으로 빌드 하세요.  
-`-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21
+`-DCMAKE_SYSTEM_NAME=Android -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21
 -DCMAKE_TOOLCHAIN_FILE=<your NDK path>\ndk\<version>\build\cmake\android.toolchain.cmake`  
-x86 아키텍처는 `-DANDROID_ABI=armeabi-v7a`로 설정합니다.
+x86 아키텍처는 `-DANDROID_ABI=armeabi-v7a`로 변경합니다.
 
 - NDK >= r27
 	- libc++ >= 18.0.0
 	- std::chrono::duration operator<=>가 구현된 최초 버전
+
+##### 알려진 문제
+
+CMake 재구성 시, CMAKE_SYSTEM_NAME가 올바르게 반영되지 않을 수 있습니다.
+반드시 CMake 캐시를 삭제 후 재구성하여 빌드해야 합니다.
+
+#### iOS 빌드 요구사항
+
+macOS 환경에서 cmake로 구성하는 것을 권장합니다.
+아래 cmake 옵션으로 빌드 하세요.  
+`-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_DEPLOYMENT_TARGET=16.3`
+iOS용 시뮬레이션 빌드는 `-DCMAKE_OSX_SYSROOT=iphonesimulator`로 변경합니다.
+
+- Xcode >= 16.0
+	- Apple Clang >= 16.0.0
+
+##### 알려진 문제
+LLVM Clang을 사용하는 경우, iOS Framework 링크 실패가 발생할 수 있습니다.  
+이 경우, Xcode의 Apple Clang을 사용하여 빌드해야 합니다.
 
 ## 라이선스
 
@@ -105,8 +124,8 @@ x86 아키텍처는 `-DANDROID_ABI=armeabi-v7a`로 설정합니다.
 이 라이선스는 LGPL-3.0의 조건을 따르되, 다른 소프트웨어와 링킹할 때 해당 소프트웨어가 LGPL의 일부 제한적인 요건을
 따르지 않아도 되는 예외를 허용합니다.
 
-하지만, 이는 본 라이브러리에서 사용되는 모든 소스가 LGPL3-LE와 호환되는 라이선스를 따른다는 것을 의미하지 않습니다.
-즉, 본 라이브러리는 다양한 라이브러리를 종속할 수 있으며, 이러한 종속성들은 LGPL3-LE와 호환되지 않는 라이선스를 따를 수 있습니다.
+다만, 이는 본 라이브러리에서 사용되는 모든 소스가 LGPL3-LE와 호환되는 라이선스를 따른다는 것을 의미하지 않습니다.
+본 라이브러리는 다양한 라이브러리를 종속할 수 있으며, 이러한 종속성들은 LGPL3-LE와 호환되지 않는 라이선스를 따를 수 있습니다.
 이 경우 본 라이브러리는 더 엄격한 라이선스로 자동 승격됩니다.
 
 ### JUCE 종속성에 대한 중요한 안내
