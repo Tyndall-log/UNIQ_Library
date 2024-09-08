@@ -110,6 +110,11 @@ namespace uniq::core
 			#endif
 			return sp;
 		}
+	protected:
+		void workspace_ID_set(const id_t workspace_id)
+		{
+			workspace_id_ = workspace_id;
+		}
 	public:
 		ID(const ID&) = delete;
 		ID& operator=(const ID&) = delete;

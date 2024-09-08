@@ -12,6 +12,11 @@ spin_lock workspace_list_lock;
 
 namespace uniq::workspace
 {
+	workspace::workspace()
+	{
+		workspace_ID_set(ID_get());
+	}
+
 	void workspace::uniq_add(const std::shared_ptr<project::project> &uniq)
 	{
 		uniq_list.push_back(uniq);

@@ -156,6 +156,14 @@ endfunction()
 add_library(UNIQ_Library SHARED)
 link_library(UNIQ_Library)
 
+if (COPY_PATH)
+	add_custom_command(
+		TARGET UNIQ_Library
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library> ${COPY_PATH}
+	)
+endif()
+
 # 정적 라이브러리
 add_library(UNIQ_Library_static STATIC)
 link_library(UNIQ_Library_static)
