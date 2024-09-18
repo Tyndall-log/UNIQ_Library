@@ -156,14 +156,52 @@ endfunction()
 add_library(UNIQ_Library SHARED)
 link_library(UNIQ_Library)
 
-if (COPY_PATH)
-	add_custom_command(
-		TARGET UNIQ_Library
-		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library> ${COPY_PATH}
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	set(INFO_PLIST_CONTENT "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleExecutable</key>
+	<string>UNIQ_Library</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.uniq.library</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.9.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>MinimumOSVersion</key>
+    <string>16.3</string>
+</dict>
+</plist>")
+
+	# 런타임에 Info.plist 파일 생성
+	set(INFO_PLIST_PATH "${CMAKE_BINARY_DIR}/UNIQ_Library_Info.plist")
+
+	file(WRITE ${INFO_PLIST_PATH} "${INFO_PLIST_CONTENT}")
+	set_target_properties(UNIQ_Library PROPERTIES
+		FRAMEWORK TRUE
+		MACOSX_FRAMEWORK_INFO_PLIST ${INFO_PLIST_PATH}
 	)
 endif()
 
 # 정적 라이브러리
 add_library(UNIQ_Library_static STATIC)
 link_library(UNIQ_Library_static)
+
+if (COPY_PATH)
+	add_custom_command(
+		TARGET UNIQ_Library
+		POST_BUILD
+#		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library> ${COPY_PATH}
+		COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:UNIQ_Library> ${COPY_PATH}/UNIQ_Library.framework
+	)
+	add_custom_command(
+		TARGET UNIQ_Library_static
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library_static> ${COPY_PATH}
+	)
+endif()
