@@ -157,6 +157,7 @@ add_library(UNIQ_Library SHARED)
 link_library(UNIQ_Library)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	message(STATUS "Framework 설정")
 	set(INFO_PLIST_CONTENT "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -193,12 +194,19 @@ add_library(UNIQ_Library_static STATIC)
 link_library(UNIQ_Library_static)
 
 if (COPY_PATH)
-	add_custom_command(
-		TARGET UNIQ_Library
-		POST_BUILD
-#		COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library> ${COPY_PATH}
-		COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:UNIQ_Library> ${COPY_PATH}/UNIQ_Library.framework
-	)
+	if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+		add_custom_command(
+			TARGET UNIQ_Library
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_directory $<TARGET_FILE_DIR:UNIQ_Library> ${COPY_PATH}/UNIQ_Library.framework
+		)
+	else()
+		add_custom_command(
+			TARGET UNIQ_Library
+			POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:UNIQ_Library> ${COPY_PATH}
+		)
+	endif()
 	add_custom_command(
 		TARGET UNIQ_Library_static
 		POST_BUILD

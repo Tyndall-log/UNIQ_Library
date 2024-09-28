@@ -16,7 +16,7 @@ namespace uniq::launchpad
 	{
 		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
 		static const std::map<std::string, std::string> android_launchpad_map;
-		static const std::list<std::tuple<std::string, std::string>> macos_launchpad_list;
+		static const std::list<std::tuple<std::string, std::string>> apple_launchpad_list;
 
 	public:
 		class midi_device_info : public juce::MidiDeviceInfo

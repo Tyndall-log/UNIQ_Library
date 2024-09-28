@@ -91,7 +91,7 @@ namespace uniq::launchpad
 		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
 		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
 	};
-	list<tuple<string, string>> const launchpad_manager::macos_launchpad_list = {
+	list<tuple<string, string>> const launchpad_manager::apple_launchpad_list = {
 		{"Launchpad", "Novation Launchpad"},
 		{"Launchpad S", "Novation Launchpad S"},
 		{"Launchpad Mini", "Novation Launchpad Mini"},
@@ -164,18 +164,18 @@ namespace uniq::launchpad
 			return ""; //지원되는 런치패드 아님.
 		}
 		return it->second;
-#elif JUCE_MAC
+#elif JUCE_MAC || JUCE_IOS
 		const auto& identifier = mdi.identifier;
 		const auto& name = mdi.name;
 		if (!name.contains("Launchpad")) return "";
 		if (name.contains("DAW")) return "";
 		// const auto it = macos_launchpad_map.find(name.toStdString());
-		auto it = std::ranges::find_if(macos_launchpad_list | views::reverse,
+		auto it = std::ranges::find_if(apple_launchpad_list | views::reverse,
 			[&name](const auto& v)
 			{
 				return name.contains(get<0>(v));
 			});
-		if (it == macos_launchpad_list.rend())
+		if (it == apple_launchpad_list.rend())
 		{
 			log::warn("지원되는 런치패드가 아닙니다. name: " + name.toStdString());
 			return ""; //지원되는 런치패드 아님.
@@ -200,7 +200,7 @@ namespace uniq::launchpad
 #elif JUCE_ANDROID
 		String s = mdi.identifier;
 		return s[0] == '-' ? s.substring(1).toStdString() : s.toStdString();
-#elif JUCE_MAC
+#elif JUCE_MAC || JUCE_IOS
 		return mdi.identifier.upToFirstOccurrenceOf(" ", false, false).toStdString();
 #else
 		return mdi.identifier.toStdString();
@@ -218,8 +218,10 @@ namespace uniq::launchpad
 			return MidiInput::getAvailableDevices();
 		});
 
+		log::info("Available MIDI Input Devices:");
 		for (auto& deviceInfo : availableDevices)
 		{
+			log::info(deviceInfo.name.toStdString() + " " + deviceInfo.identifier.toStdString());
 			auto name = launchpad_kind_name_get(deviceInfo);
 			if (name.empty()) continue;
 			devices.emplace_back(std::move(deviceInfo), name);
@@ -239,8 +241,10 @@ namespace uniq::launchpad
 			return MidiOutput::getAvailableDevices();
 		});
 
+		log::info("Available MIDI Output Devices:");
 		for (auto& deviceInfo : availableDevices)
 		{
+			log::info(deviceInfo.name.toStdString() + " " + deviceInfo.identifier.toStdString());
 			auto name = launchpad_kind_name_get(deviceInfo);
 			if (name.empty()) continue;
 			devices.emplace_back(std::move(deviceInfo), name);
