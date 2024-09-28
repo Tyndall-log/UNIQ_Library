@@ -18,6 +18,12 @@ namespace uniq::launchpad
 		static const std::map<std::string, std::string> android_launchpad_map;
 		static const std::list<std::tuple<std::string, std::string>> apple_launchpad_list;
 
+		struct launchpad_change_callback_set_compare
+		{
+			// using is_transparent = void;
+			bool operator()(const std::weak_ptr<std::function<void()>>& lhs, const std::weak_ptr<std::function<void()>>& rhs) const;
+		};
+
 	public:
 		class midi_device_info : public juce::MidiDeviceInfo
 		{
@@ -39,12 +45,15 @@ namespace uniq::launchpad
 	private:
 		inline static std::weak_ptr<launchpad_manager> instance_weak_;
 		inline static juce::MidiDeviceListConnection midi_device_list_connection_;
-		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_automatic_map_;
-		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_map_;
+		inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_automatic_map_; //string: launchpad_device_identifier_get()
+		// inline static std::map<std::string, std::shared_ptr<launchpad>> launchpad_map_; //string: launchpad_device_identifier_get()
+		// inline static std::set<std::shared_ptr<launchpad>> launchpad_automatic_set_;
+		inline static std::set<std::shared_ptr<launchpad>> launchpad_set_;
 		// inline static std::map<std::string, input_output> input_output_map_;
 		inline static std::shared_ptr<message_thread> message_thread_;
 		inline static std::shared_ptr<audio_device_manager> audio_device_manager_;
 		inline static std::future<void> launchpad_map_update_future_;
+		inline static std::set<std::weak_ptr<std::function<void()>>, launchpad_change_callback_set_compare> launchpad_change_callback_set_;
 
 		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
 		static std::string launchpad_device_identifier_get(juce::MidiDeviceInfo& mdi);
@@ -59,6 +68,9 @@ namespace uniq::launchpad
 	public:
 		static std::shared_ptr<launchpad_manager> instance_get();
 		static std::shared_ptr<launchpad_manager> instance_get_without_creating();
+		static bool launchpad_contains(std::shared_ptr<launchpad> lp);
+		static void launchpad_change_callback_register(const std::shared_ptr<std::function<void()>> &callback);
+		static bool launchpad_change_callback_unregister(const std::shared_ptr<std::function<void()>> &callback);
 		static auto launchpad_list_get() -> std::vector<std::shared_ptr<launchpad>>;
 	};
 

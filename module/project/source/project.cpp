@@ -692,6 +692,22 @@ namespace uniq::project
 		return false;
 	}
 
+	void project::launchpad_change_callback()
+	{
+		if (launchpad_)
+		{
+			if (!launchpad_manager_->launchpad_contains(launchpad_))
+			{
+				launchpad_disconnect_all();
+			}
+		}
+		if (!launchpad_)
+		{
+			launchpad_auto_connect();
+		}
+
+	}
+
 	void project::audio_play(const std::shared_ptr<timeline> &target_timeline, const std::shared_ptr<timeline_group> &target_group)
 	{
 		constexpr timeline::cue_point_t start_duration = -200ms;
@@ -732,6 +748,11 @@ namespace uniq::project
 	project::project()
 	{
 		current_page_ = timeline_page_create(0us);
+		launchpad_change_callback_ = make_shared<std::function<void()>>([this]
+		{
+			launchpad_change_callback();
+		});
+		launchpad_manager_->launchpad_change_callback_register(launchpad_change_callback_);
 	}
 
 	project::~project()

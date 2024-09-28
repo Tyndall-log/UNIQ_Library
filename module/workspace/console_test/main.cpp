@@ -36,5 +36,9 @@ int main(const int argc, const char* argv[])
 
 	t.detach();
 	JUCEApplicationBase::createInstance = []() -> JUCEApplicationBase* { return new UNIQ_Library_workspace_test(); };
+#if defined(_WIN32)
+	return JUCEApplicationBase::main();
+#else
 	return JUCEApplicationBase::main(argc, argv);
+#endif
 }

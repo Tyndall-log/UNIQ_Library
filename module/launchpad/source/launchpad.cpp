@@ -102,6 +102,12 @@ namespace uniq::launchpad
 		{"Launchpad Pro MK3", "Novation Launchpad Pro MK3"},
 	};
 
+	bool launchpad_manager::launchpad_change_callback_set_compare::operator()(
+		const std::weak_ptr<std::function<void()>> &lhs, const std::weak_ptr<std::function<void()>> &rhs) const
+	{
+		return lhs.owner_before(rhs);
+	}
+
 	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info) : MidiDeviceInfo(info){}
 
 	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info, const String& name) : MidiDeviceInfo(info)
@@ -196,7 +202,8 @@ namespace uniq::launchpad
 	std::string launchpad_manager::launchpad_device_identifier_get(MidiDeviceInfo &mdi)
 	{
 #if JUCE_WINDOWS
-		static_assert(false, "Not implemented");
+		String s = mdi.identifier;
+		return s.toStdString();
 #elif JUCE_ANDROID
 		String s = mdi.identifier;
 		return s[0] == '-' ? s.substring(1).toStdString() : s.toStdString();
@@ -265,7 +272,7 @@ namespace uniq::launchpad
 			auto adm = audio_device_manager_->get_adm();
 			auto input_list = get_available_input_list();
 			auto output_list = get_available_output_list();
-			unordered_map<string, input_output> input_output_map;
+			unordered_map<string, input_output> input_output_map; //string : launchpad_device_identifier_get
 			for (auto& input : input_list)
 			{
 				input_output_map[launchpad_device_identifier_get(input)].input = input;
@@ -299,6 +306,21 @@ namespace uniq::launchpad
 					RAC(lp, true);
 					launchpad_automatic_map_[k] = lp;
 					input_output_add_list.push_back(k);
+				}
+			}
+		});
+		message_thread_->call_async([&] {
+			auto it = launchpad_change_callback_set_.begin();
+			while (it != launchpad_change_callback_set_.end())
+			{
+				if (auto sp = it->lock())
+				{
+					(*sp)();
+					++it;
+				}
+				else
+				{
+					it = launchpad_change_callback_set_.erase(it);
 				}
 			}
 		});
@@ -379,6 +401,29 @@ namespace uniq::launchpad
 	std::shared_ptr<launchpad_manager> launchpad_manager::instance_get_without_creating()
 	{
 		return instance_weak_.lock();
+	}
+
+	bool launchpad_manager::launchpad_contains(std::shared_ptr<launchpad> lp)
+	{
+		for(auto& [k, v] : launchpad_automatic_map_)
+		{
+			if (v == lp) return true;
+		}
+		for(auto& v : launchpad_set_)
+		{
+			if (v == lp) return true;
+		}
+		return false;
+	}
+
+	void launchpad_manager::launchpad_change_callback_register(const std::shared_ptr<std::function<void()>> &callback)
+	{
+		launchpad_change_callback_set_.insert(callback);
+	}
+
+	bool launchpad_manager::launchpad_change_callback_unregister(const std::shared_ptr<std::function<void()>> &callback)
+	{
+		return launchpad_change_callback_set_.erase(callback) != 0;
 	}
 
 	auto launchpad_manager::launchpad_list_get() -> std::vector<std::shared_ptr<launchpad>>

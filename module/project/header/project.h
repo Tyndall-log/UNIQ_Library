@@ -170,6 +170,7 @@ namespace uniq::project
 		std::shared_ptr<audio_player> player_ = audio_player::create();
 		std::shared_ptr<launchpad::launchpad_manager> launchpad_manager_ = launchpad::launchpad_manager::instance_get();
 		std::shared_ptr<launchpad::launchpad> launchpad_;
+		std::shared_ptr<std::function<void()>> launchpad_change_callback_;
 		int launchpad_callback_id_{-1};
 		int launchpad_button_down_callback_id_{-1};
 		int launchpad_button_up_callback_id_{-1};
@@ -211,6 +212,7 @@ namespace uniq::project
 		bool guide_button_down_check(uint8_t x, uint8_t y);
 		bool guide_button_up_check(uint8_t x, uint8_t y);
 		// std::shared_ptr<pad_key_info> pad_key_info_ = std::make_shared<pad_key_info>();
+		void launchpad_change_callback();
 
 		void audio_play(const std::shared_ptr<timeline>& target_timeline, const std::shared_ptr<timeline_group>& target_group);
 	protected:

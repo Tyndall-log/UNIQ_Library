@@ -15,6 +15,7 @@ namespace uniq::workspace
 	{
 		std::string name;
 		std::vector<std::shared_ptr<project::project>> uniq_list;
+		// std::shared_ptr<launchpad::launchpad_manager> launchpad_manager;
 	public:
 		workspace();
 

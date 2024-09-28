@@ -10,6 +10,13 @@
 
 namespace uniq
 {
+
+#ifdef _WIN32
+	inline char* strdup(const char* str) {
+		return _strdup(str);
+	}
+#endif
+
 	class log
 	{
 		template<size_t N = 4096>
@@ -63,7 +70,20 @@ namespace uniq
 
 			consteval size_t make_data(const std::source_location location)
 			{
+#if defined(_WIN32)
+				const std::string_view fulfile_name_origin = location.file_name();
+				char temp_name[N] = {};
+				size_t write_index = 0;
+				for (char c : fulfile_name_origin)
+				{
+					if (write_index >= N - 1) break;
+					temp_name[write_index++] = c == '\\' ? '/' : c;
+				}
+				temp_name[write_index] = '\0';
+				const std::string_view fulfile_name = temp_name;
+#else
 				const std::string_view fulfile_name = location.file_name();
+#endif
 				constexpr std::string_view marker = "module/";
 				size_t n = 0;
 				auto _data = &data_[n];

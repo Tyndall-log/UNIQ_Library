@@ -174,8 +174,38 @@ namespace uniq::core::api
 			consteval explicit func_info_struct(const std::source_location location = std::source_location::current())
 			{
 				std::string_view type_name = location.function_name();
+#if defined(_MSC_VER)
+				constexpr std::string_view calling_convention = "__cdecl ";
+				if (const size_t pos = type_name.find(calling_convention); pos != std::string_view::npos)
+				{
+					const std::string_view before = type_name.substr(0, pos);
+					const std::string_view after = type_name.substr(pos + calling_convention.length());
+					char temp_name[N] = {};
+					size_t write_index = 0;
+
+					for (char c : before)
+					{
+						if (write_index >= N - 1) break;
+						temp_name[write_index++] = c;
+					}
+					for (char c : after)
+					{
+						if (write_index >= N - 1) break;
+						temp_name[write_index++] = c;
+					}
+					temp_name[write_index] = '\0';
+
+					std::copy(temp_name, temp_name + write_index + 1, this->name);
+				}
+				else
+				{
+					std::copy(type_name.begin(), type_name.end(), this->name);
+					this->name[type_name.size()] = '\0';
+				}
+#else
 				std::copy(type_name.begin(), type_name.end(), this->name);
 				this->name[type_name.size()] = '\0';
+#endif
 				hash = hash::fnv1a_hash(this->name);
 			}
 		};
