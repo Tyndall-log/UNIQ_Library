@@ -343,7 +343,7 @@ namespace uniq::project
 			for (int y = 0; y < 10; ++y)
 			{
 				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
-				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
+				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 			}
 		}
 
@@ -355,7 +355,7 @@ namespace uniq::project
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
 				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
-				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
+				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				guide_group_deque_.pop_front();
 			}
 			return;
@@ -377,6 +377,7 @@ namespace uniq::project
 				guide_target_cue = cue;
 			}
 		}
+		// guide_target_cue += guide_start_first_flag_ ? 20ms : 0ms;
 
 		//가이드 페이지 확인
 		auto guide_target_page = timeline_page_find_floor(guide_target_cue);
@@ -424,7 +425,7 @@ namespace uniq::project
 				{
 					//현재 페이지에 해당하는 LED 표시
 					// launchpad_->rgb_set(page_x, page_y, guide_color_.r, guide_color_.g, guide_color_.b);
-					launchpad_->lightshow_get()->guide_color_set(page_x, page_y, guide_color_);
+					if (launchpad_) launchpad_->lightshow_get()->guide_color_set(page_x, page_y, guide_color_);
 				}
 			}
 			else
@@ -446,6 +447,7 @@ namespace uniq::project
 					const auto x = guide_group.group->button_x.get();
 					const auto y = guide_group.group->button_y.get();
 					audio_play(timeline_list_[0], guide_group.group);
+					guide_start_first_flag_ = false;
 					if (launchpad_)
 					{
 						auto lightshow = launchpad_->lightshow_get();
@@ -466,7 +468,7 @@ namespace uniq::project
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
 				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
-				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
+				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
 			}
 			break;
@@ -481,7 +483,7 @@ namespace uniq::project
 				auto x = guide_group.group->button_x.get();
 				auto y = guide_group.group->button_y.get();
 				//launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
-				launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
+				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
 			}
 			break;
@@ -493,7 +495,7 @@ namespace uniq::project
 			auto x = guide_group.group->button_x.get();
 			auto y = guide_group.group->button_y.get();
 			// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
-			launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
+			if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 		}
 
 		for (const auto& timeline_ : timeline_list_)
@@ -517,7 +519,7 @@ namespace uniq::project
 					auto x = group->button_x.get();
 					auto y = group->button_y.get();
 					// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
-					launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
+					if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 				}
 				++it_start;
 			}
@@ -980,6 +982,7 @@ namespace uniq::project
 			return;
 		}
 		guide_play_ = true;
+		guide_start_first_flag_ = true;
 		//TODO: 화면에 표시된 가이드 끄기
 		guide_timer_.startTimer(static_cast<int>(guide_timer_interval_.count()));
 		// if (!guide_start_)
@@ -1042,6 +1045,7 @@ namespace uniq::project
 	bool project::launchpad_connect(const std::shared_ptr<launchpad::launchpad> &launchpad)
 	{
 		launchpad_ = launchpad;
+		launchpad_->parent_ID_add(ID_get());
 		launchpad_->program_mode_set(true);
 		// launchpad_callback_id_ = launchpad_->input_callback_add([this](const uint8* data, const int size)
 		// {
@@ -1066,13 +1070,22 @@ namespace uniq::project
 			log::warn("감지된 런치패드가 없습니다.");
 			return false;
 		}
-		launchpad_connect(launchpad_list.front());
-		return true;
+		for (const auto& launchpad : launchpad_list)
+		{
+			if (launchpad->parent_ID_count() == 0)
+			{
+				launchpad_connect(launchpad);
+				return true;
+			}
+		}
+		log::warn("남은 런치패드가 없어 자동으로 연결할 수 없습니다.(모두 사용중)");
+		return false;
 	}
 
 	bool project::launchpad_disconnect_all()
 	{
 		if (!launchpad_) return false;
+		launchpad_->parent_ID_remove(ID_get());
 		// launchpad_->program_mode_set(false); //TODO: 더 이상 사용되지 않은 런치패드에 한해서 프로그램 모드 해제
 		launchpad_->input_callback_remove(launchpad_callback_id_);
 		launchpad_->input_button_down_callback_remove(launchpad_button_down_callback_id_);
@@ -1090,7 +1103,7 @@ namespace uniq::project
 			// launchpad_->rgb_set(x, y, 0x00, 0x7F, 0x00)
 			lightshow::rgbav color;
 			color.rgba_set(0x00, 0x7F, 0x00, 0xFF);
-			launchpad_->lightshow_get()->pressed_color_set(x, y, color);
+			if (launchpad_) launchpad_->lightshow_get()->pressed_color_set(x, y, color);
 		}
 
 		if (guide_button_down_check(x, y)) return;
@@ -1179,7 +1192,7 @@ namespace uniq::project
 		//누른키 표시 해제
 		{
 			// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
-			launchpad_->lightshow_get()->pressed_color_set(x, y, lightshow::rgbav{});
+			if (launchpad_) launchpad_->lightshow_get()->pressed_color_set(x, y, lightshow::rgbav{});
 		}
 	}
 

@@ -10,96 +10,97 @@ using namespace juce;
 
 namespace uniq::launchpad
 {
-	map<string, tuple<string, uint8_t>> const launchpad_manager::VPID_map = {
+	// map<launchpad_kind, string> const launchpad_kind_name_map
+	map<string, tuple<launchpad_kind, uint8_t, uint8_t>> const launchpad_manager::VPID_map = {
 		//1235 -> Focusrite-Novation
-		{"1235" "000e", {"Novation Launchpad", 0_uc}},
-		{"1235" "0020", {"Novation Launchpad S", 0_uc}},
-		{"1235" "0036", {"Novation Launchpad Mini", 0_uc}},
-		{"1235" "0051", {"Novation Launchpad Pro", 0_uc}},
-		{"1235" "0069", {"Novation Launchpad MK2 1", 0_uc}},
-		{"1235" "006a", {"Novation Launchpad MK2 2", 0_uc}},
-		{"1235" "006b", {"Novation Launchpad MK2 3", 0_uc}},
-		{"1235" "006v", {"Novation Launchpad MK2 4", 0_uc}},
-		{"1235" "006d", {"Novation Launchpad MK2 5", 0_uc}},
-		{"1235" "006e", {"Novation Launchpad MK2 6", 0_uc}},
-		{"1235" "006f", {"Novation Launchpad MK2 7", 0_uc}},
-		{"1235" "0070", {"Novation Launchpad MK2 8", 0_uc}},
-		{"1235" "0071", {"Novation Launchpad MK2 9", 0_uc}},
-		{"1235" "0072", {"Novation Launchpad MK2 10", 0_uc}},
-		{"1235" "0073", {"Novation Launchpad MK2 11", 0_uc}},
-		{"1235" "0074", {"Novation Launchpad MK2 12", 0_uc}},
-		{"1235" "0075", {"Novation Launchpad MK2 13", 0_uc}},
-		{"1235" "0076", {"Novation Launchpad MK2 14", 0_uc}},
-		{"1235" "0077", {"Novation Launchpad MK2 15", 0_uc}},
-		{"1235" "0078", {"Novation Launchpad MK2 16", 0_uc}},
-		{"1235" "0103", {"Novation Launchpad X 1", 1_uc}},
-		{"1235" "0104", {"Novation Launchpad X 2", 1_uc}},
-		{"1235" "0105", {"Novation Launchpad X 3", 1_uc}},
-		{"1235" "0106", {"Novation Launchpad X 4", 1_uc}},
-		{"1235" "0107", {"Novation Launchpad X 5", 1_uc}},
-		{"1235" "0108", {"Novation Launchpad X 6", 1_uc}},
-		{"1235" "0109", {"Novation Launchpad X 7", 1_uc}},
-		{"1235" "010a", {"Novation Launchpad X 8", 1_uc}},
-		{"1235" "010b", {"Novation Launchpad X 9", 1_uc}},
-		{"1235" "010c", {"Novation Launchpad X 10", 1_uc}},
-		{"1235" "010d", {"Novation Launchpad X 11", 1_uc}},
-		{"1235" "010e", {"Novation Launchpad X 12", 1_uc}},
-		{"1235" "010f", {"Novation Launchpad X 13", 1_uc}},
-		{"1235" "0110", {"Novation Launchpad X 14", 1_uc}},
-		{"1235" "0111", {"Novation Launchpad X 15", 1_uc}},
-		{"1235" "0112", {"Novation Launchpad X 16", 1_uc}},
-		{"1235" "0113", {"Novation Launchpad Mini MK3 1", 1_uc}},
-		{"1235" "0114", {"Novation Launchpad Mini MK3 2", 1_uc}},
-		{"1235" "0115", {"Novation Launchpad Mini MK3 3", 1_uc}},
-		{"1235" "0116", {"Novation Launchpad Mini MK3 4", 1_uc}},
-		{"1235" "0117", {"Novation Launchpad Mini MK3 5", 1_uc}},
-		{"1235" "0118", {"Novation Launchpad Mini MK3 6", 1_uc}},
-		{"1235" "0119", {"Novation Launchpad Mini MK3 7", 1_uc}},
-		{"1235" "011a", {"Novation Launchpad Mini MK3 8", 1_uc}},
-		{"1235" "011b", {"Novation Launchpad Mini MK3 9", 1_uc}},
-		{"1235" "011c", {"Novation Launchpad Mini MK3 10", 1_uc}},
-		{"1235" "011d", {"Novation Launchpad Mini MK3 11", 1_uc}},
-		{"1235" "011e", {"Novation Launchpad Mini MK3 12", 1_uc}},
-		{"1235" "011f", {"Novation Launchpad Mini MK3 13", 1_uc}},
-		{"1235" "0120", {"Novation Launchpad Mini MK3 14", 1_uc}},
-		{"1235" "0121", {"Novation Launchpad Mini MK3 15", 1_uc}},
-		{"1235" "0122", {"Novation Launchpad Mini MK3 16", 1_uc}},
-		{"1235" "0123", {"Novation Launchpad Pro MK3 1", 1_uc}},
-		{"1235" "0124", {"Novation Launchpad Pro MK3 2", 1_uc}},
-		{"1235" "0125", {"Novation Launchpad Pro MK3 3", 1_uc}},
-		{"1235" "0126", {"Novation Launchpad Pro MK3 4", 1_uc}},
-		{"1235" "0127", {"Novation Launchpad Pro MK3 5", 1_uc}},
-		{"1235" "0128", {"Novation Launchpad Pro MK3 6", 1_uc}},
-		{"1235" "0129", {"Novation Launchpad Pro MK3 7", 1_uc}},
-		{"1235" "012a", {"Novation Launchpad Pro MK3 8", 1_uc}},
-		{"1235" "012b", {"Novation Launchpad Pro MK3 9", 1_uc}},
-		{"1235" "012c", {"Novation Launchpad Pro MK3 10", 1_uc}},
-		{"1235" "012d", {"Novation Launchpad Pro MK3 11", 1_uc}},
-		{"1235" "012e", {"Novation Launchpad Pro MK3 12", 1_uc}},
-		{"1235" "012f", {"Novation Launchpad Pro MK3 13", 1_uc}},
-		{"1235" "0130", {"Novation Launchpad Pro MK3 14", 1_uc}},
-		{"1235" "0131", {"Novation Launchpad Pro MK3 15", 1_uc}},
-		{"1235" "0132", {"Novation Launchpad Pro MK3 16", 1_uc}},
+		{"1235" "000e", {launchpad_kind::launchpad, 0_uc, 0}},
+		{"1235" "0020", {launchpad_kind::launchpad_s, 0_uc, 0}},
+		{"1235" "0036", {launchpad_kind::launchpad_mini, 0_uc, 0}},
+		{"1235" "0051", {launchpad_kind::launchpad_pro, 0_uc, 0}},
+		{"1235" "0069", {launchpad_kind::launchpad_mk2, 0_uc, 1}},
+		{"1235" "006a", {launchpad_kind::launchpad_mk2, 0_uc, 2}},
+		{"1235" "006b", {launchpad_kind::launchpad_mk2, 0_uc, 3}},
+		{"1235" "006v", {launchpad_kind::launchpad_mk2, 0_uc, 4}},
+		{"1235" "006d", {launchpad_kind::launchpad_mk2, 0_uc, 5}},
+		{"1235" "006e", {launchpad_kind::launchpad_mk2, 0_uc, 6}},
+		{"1235" "006f", {launchpad_kind::launchpad_mk2, 0_uc, 7}},
+		{"1235" "0070", {launchpad_kind::launchpad_mk2, 0_uc, 8}},
+		{"1235" "0071", {launchpad_kind::launchpad_mk2, 0_uc, 9}},
+		{"1235" "0072", {launchpad_kind::launchpad_mk2, 0_uc, 10}},
+		{"1235" "0073", {launchpad_kind::launchpad_mk2, 0_uc, 11}},
+		{"1235" "0074", {launchpad_kind::launchpad_mk2, 0_uc, 12}},
+		{"1235" "0075", {launchpad_kind::launchpad_mk2, 0_uc, 13}},
+		{"1235" "0076", {launchpad_kind::launchpad_mk2, 0_uc, 14}},
+		{"1235" "0077", {launchpad_kind::launchpad_mk2, 0_uc, 15}},
+		{"1235" "0078", {launchpad_kind::launchpad_mk2, 0_uc, 16}},
+		{"1235" "0103", {launchpad_kind::launchpad_x, 1_uc, 1}},
+		{"1235" "0104", {launchpad_kind::launchpad_x, 1_uc, 2}},
+		{"1235" "0105", {launchpad_kind::launchpad_x, 1_uc, 3}},
+		{"1235" "0106", {launchpad_kind::launchpad_x, 1_uc, 4}},
+		{"1235" "0107", {launchpad_kind::launchpad_x, 1_uc, 5}},
+		{"1235" "0108", {launchpad_kind::launchpad_x, 1_uc, 6}},
+		{"1235" "0109", {launchpad_kind::launchpad_x, 1_uc, 7}},
+		{"1235" "010a", {launchpad_kind::launchpad_x, 1_uc, 8}},
+		{"1235" "010b", {launchpad_kind::launchpad_x, 1_uc, 9}},
+		{"1235" "010c", {launchpad_kind::launchpad_x, 1_uc, 10}},
+		{"1235" "010d", {launchpad_kind::launchpad_x, 1_uc, 11}},
+		{"1235" "010e", {launchpad_kind::launchpad_x, 1_uc, 12}},
+		{"1235" "010f", {launchpad_kind::launchpad_x, 1_uc, 13}},
+		{"1235" "0110", {launchpad_kind::launchpad_x, 1_uc, 14}},
+		{"1235" "0111", {launchpad_kind::launchpad_x, 1_uc, 15}},
+		{"1235" "0112", {launchpad_kind::launchpad_x, 1_uc, 16}},
+		{"1235" "0113", {launchpad_kind::launchpad_mini_mk3, 1_uc, 1}},
+		{"1235" "0114", {launchpad_kind::launchpad_mini_mk3, 1_uc, 2}},
+		{"1235" "0115", {launchpad_kind::launchpad_mini_mk3, 1_uc, 3}},
+		{"1235" "0116", {launchpad_kind::launchpad_mini_mk3, 1_uc, 4}},
+		{"1235" "0117", {launchpad_kind::launchpad_mini_mk3, 1_uc, 5}},
+		{"1235" "0118", {launchpad_kind::launchpad_mini_mk3, 1_uc, 6}},
+		{"1235" "0119", {launchpad_kind::launchpad_mini_mk3, 1_uc, 7}},
+		{"1235" "011a", {launchpad_kind::launchpad_mini_mk3, 1_uc, 8}},
+		{"1235" "011b", {launchpad_kind::launchpad_mini_mk3, 1_uc, 9}},
+		{"1235" "011c", {launchpad_kind::launchpad_mini_mk3, 1_uc, 10}},
+		{"1235" "011d", {launchpad_kind::launchpad_mini_mk3, 1_uc, 11}},
+		{"1235" "011e", {launchpad_kind::launchpad_mini_mk3, 1_uc, 12}},
+		{"1235" "011f", {launchpad_kind::launchpad_mini_mk3, 1_uc, 13}},
+		{"1235" "0120", {launchpad_kind::launchpad_mini_mk3, 1_uc, 14}},
+		{"1235" "0121", {launchpad_kind::launchpad_mini_mk3, 1_uc, 15}},
+		{"1235" "0122", {launchpad_kind::launchpad_mini_mk3, 1_uc, 16}},
+		{"1235" "0123", {launchpad_kind::launchpad_pro_mk3, 1_uc, 1}},
+		{"1235" "0124", {launchpad_kind::launchpad_pro_mk3, 1_uc, 2}},
+		{"1235" "0125", {launchpad_kind::launchpad_pro_mk3, 1_uc, 3}},
+		{"1235" "0126", {launchpad_kind::launchpad_pro_mk3, 1_uc, 4}},
+		{"1235" "0127", {launchpad_kind::launchpad_pro_mk3, 1_uc, 5}},
+		{"1235" "0128", {launchpad_kind::launchpad_pro_mk3, 1_uc, 6}},
+		{"1235" "0129", {launchpad_kind::launchpad_pro_mk3, 1_uc, 7}},
+		{"1235" "012a", {launchpad_kind::launchpad_pro_mk3, 1_uc, 8}},
+		{"1235" "012b", {launchpad_kind::launchpad_pro_mk3, 1_uc, 9}},
+		{"1235" "012c", {launchpad_kind::launchpad_pro_mk3, 1_uc, 10}},
+		{"1235" "012d", {launchpad_kind::launchpad_pro_mk3, 1_uc, 11}},
+		{"1235" "012e", {launchpad_kind::launchpad_pro_mk3, 1_uc, 12}},
+		{"1235" "012f", {launchpad_kind::launchpad_pro_mk3, 1_uc, 13}},
+		{"1235" "0130", {launchpad_kind::launchpad_pro_mk3, 1_uc, 14}},
+		{"1235" "0131", {launchpad_kind::launchpad_pro_mk3, 1_uc, 15}},
+		{"1235" "0132", {launchpad_kind::launchpad_pro_mk3, 1_uc, 16}},
 	};
-	map<string, string> const launchpad_manager::android_launchpad_map = {
-		{"Focusrite - Novation Launchpad", "Novation Launchpad"},
-		{"Focusrite - Novation Launchpad S", "Novation Launchpad S"},
-		{"Focusrite - Novation Launchpad Mini", "Novation Launchpad Mini"},
-		{"Focusrite - Novation Launchpad Pro", "Novation Launchpad Pro"},
-		{"Focusrite - Novation Launchpad MK2", "Novation Launchpad MK2"},
-		{"Focusrite - Novation Launchpad X-2", "Novation Launchpad X"},
-		{"Focusrite - Novation Launchpad Mini MK3-2", "Novation Launchpad Mini MK3"},
-		{"Focusrite - Novation Launchpad Pro MK3-2", "Novation Launchpad Pro MK3"},
+	map<string, launchpad_kind> const launchpad_manager::android_launchpad_map = {
+		{"Focusrite - Novation Launchpad", launchpad_kind::launchpad},
+		{"Focusrite - Novation Launchpad S", launchpad_kind::launchpad_s},
+		{"Focusrite - Novation Launchpad Mini", launchpad_kind::launchpad_mini},
+		{"Focusrite - Novation Launchpad Pro", launchpad_kind::launchpad_pro},
+		{"Focusrite - Novation Launchpad MK2", launchpad_kind::launchpad_mk2},
+		{"Focusrite - Novation Launchpad X-2", launchpad_kind::launchpad_x},
+		{"Focusrite - Novation Launchpad Mini MK3-2", launchpad_kind::launchpad_mini_mk3},
+		{"Focusrite - Novation Launchpad Pro MK3-2", launchpad_kind::launchpad_pro_mk3},
 	};
-	list<tuple<string, string>> const launchpad_manager::apple_launchpad_list = {
-		{"Launchpad", "Novation Launchpad"},
-		{"Launchpad S", "Novation Launchpad S"},
-		{"Launchpad Mini", "Novation Launchpad Mini"},
-		{"Launchpad Pro", "Novation Launchpad Pro"},
-		{"Launchpad MK2", "Novation Launchpad MK2"},
-		{"Launchpad X", "Novation Launchpad X"},
-		{"Launchpad Mini MK3", "Novation Launchpad Mini MK3"},
-		{"Launchpad Pro MK3", "Novation Launchpad Pro MK3"},
+	list<tuple<string, launchpad_kind>> const launchpad_manager::apple_launchpad_list = {
+		{"Launchpad", launchpad_kind::launchpad},
+		{"Launchpad S", launchpad_kind::launchpad_s},
+		{"Launchpad Mini", launchpad_kind::launchpad_mini},
+		{"Launchpad Pro", launchpad_kind::launchpad_pro},
+		{"Launchpad MK2", launchpad_kind::launchpad_mk2},
+		{"Launchpad X", launchpad_kind::launchpad_x},
+		{"Launchpad Mini MK3", launchpad_kind::launchpad_mini_mk3},
+		{"Launchpad Pro MK3", launchpad_kind::launchpad_pro_mk3},
 	};
 
 	bool launchpad_manager::launchpad_change_callback_set_compare::operator()(
@@ -110,10 +111,15 @@ namespace uniq::launchpad
 
 	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info) : MidiDeviceInfo(info){}
 
-	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info, const String& name) : MidiDeviceInfo(info)
+	launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo &&info, const launchpad_kind kind) : MidiDeviceInfo(info)
 	{
-		this->kind_name = name.toStdString();
+		this->kind = kind;
 	}
+
+	// launchpad_manager::midi_device_info::midi_device_info(const MidiDeviceInfo&& info, const String& name) : MidiDeviceInfo(info)
+	// {
+	// 	this->kind_name = name.toStdString();
+	// }
 
 	launchpad_manager::~launchpad_manager()
 	{
@@ -128,12 +134,12 @@ namespace uniq::launchpad
 		log::info("launchpad_manager 해제 완료");
 	}
 
-	std::string launchpad_manager::launchpad_kind_name_get(MidiDeviceInfo& mdi)
+	launchpad_kind launchpad_manager::launchpad_kind_get(MidiDeviceInfo &mdi)
 	{
 #if JUCE_WINDOWS
 		auto& identifier = mdi.identifier;
 
-		if (!identifier.startsWith(R"(\\?\usb#)")) return "";
+		if (!identifier.startsWith(R"(\\?\usb#)")) return launchpad_kind::none;
 
 		int pos = identifier.indexOf(8, "vid_");
 		const auto& vid = 0 <= pos ? identifier.substring(pos + 4, pos + 8).toStdString() : "0000";
@@ -142,14 +148,14 @@ namespace uniq::launchpad
 		const auto& pid = 0 <= pos ? identifier.substring(pos + 4, pos + 8).toStdString() : "0000";
 
 		//노베이션 vid인지 확인
-		if (vid != "1235") return "";
+		if (vid != "1235") return launchpad_kind::none;
 
 		//허용하는 런치패드인지 확인
 		const auto it = VPID_map.find(vid + pid);
 		if (it == VPID_map.end())
 		{
 			log::warn("지원되는 런치패드가 아닙니다. VID: " + vid + ", PID: " + pid);
-			return ""; //지원되는 런치패드 아님.
+			return launchpad_kind::unknown; //지원되는 런치패드 아님.
 		}
 
 		pos = identifier.indexOf(pos + 9, "\\global");
@@ -157,24 +163,24 @@ namespace uniq::launchpad
 		auto num = get<1>(it->second);
 		const auto global = 0 < num ? "global-" + String(++num) : "global";
 
-		if (global_num != global) return ""; //중복 건너뛰기
+		if (global_num != global) return  launchpad_kind::none; //중복 건너뛰기
 		return get<0>(it->second);
 #elif JUCE_ANDROID
 		const auto& identifier = mdi.identifier;
 		const auto& name = mdi.name;
-		if (!name.contains("Launchpad")) return "";
+		if (!name.contains("Launchpad")) return launchpad_kind::none;
 		const auto it = android_launchpad_map.find(name.toStdString());
 		if (it == android_launchpad_map.end())
 		{
 			log::warn("지원되는 런치패드가 아닙니다. name: " + name.toStdString());
-			return ""; //지원되는 런치패드 아님.
+			return launchpad_kind::none; //지원되는 런치패드 아님.
 		}
 		return it->second;
 #elif JUCE_MAC || JUCE_IOS
 		const auto& identifier = mdi.identifier;
 		const auto& name = mdi.name;
-		if (!name.contains("Launchpad")) return "";
-		if (name.contains("DAW")) return "";
+		if (!name.contains("Launchpad")) return launchpad_kind::none;
+		if (name.contains("DAW")) return launchpad_kind::none;
 		// const auto it = macos_launchpad_map.find(name.toStdString());
 		auto it = std::ranges::find_if(apple_launchpad_list | views::reverse,
 			[&name](const auto& v)
@@ -184,7 +190,7 @@ namespace uniq::launchpad
 		if (it == apple_launchpad_list.rend())
 		{
 			log::warn("지원되는 런치패드가 아닙니다. name: " + name.toStdString());
-			return ""; //지원되는 런치패드 아님.
+			return launchpad_kind::none; //지원되는 런치패드 아님.
 		}
 		return get<1>(*it);
 #else
@@ -193,9 +199,9 @@ namespace uniq::launchpad
 		auto& name = mdi.name;
 		if (name.contains("Launchpad"))
 		{
-			return name.toStdString();
+			return launchpad_kind::launchpad;
 		}
-		return "";
+		return launchpad_kind::none;
 #endif
 	}
 
@@ -229,9 +235,9 @@ namespace uniq::launchpad
 		for (auto& deviceInfo : availableDevices)
 		{
 			log::info(deviceInfo.name.toStdString() + " " + deviceInfo.identifier.toStdString());
-			auto name = launchpad_kind_name_get(deviceInfo);
-			if (name.empty()) continue;
-			devices.emplace_back(std::move(deviceInfo), name);
+			auto kind = launchpad_kind_get(deviceInfo);
+			if (kind == launchpad_kind::none) continue;
+			devices.emplace_back(std::move(deviceInfo), kind);
 		}
 
 		return devices;
@@ -252,9 +258,9 @@ namespace uniq::launchpad
 		for (auto& deviceInfo : availableDevices)
 		{
 			log::info(deviceInfo.name.toStdString() + " " + deviceInfo.identifier.toStdString());
-			auto name = launchpad_kind_name_get(deviceInfo);
-			if (name.empty()) continue;
-			devices.emplace_back(std::move(deviceInfo), name);
+			auto kind = launchpad_kind_get(deviceInfo);
+			if (kind == launchpad_kind::none) continue;
+			devices.emplace_back(std::move(deviceInfo), kind);
 		}
 
 		return devices;
@@ -301,7 +307,8 @@ namespace uniq::launchpad
 			{
 				if (!launchpad_automatic_map_.contains(k))
 				{
-					log::info(v.input->kind_name + "가 연결 되었습니다.");
+					const auto& name = launchpad_kind_name_map.at(v.input->kind);
+					log::info(name + "가 연결 되었습니다.");
 					const auto lp = launchpad::ID::create(adm, v.input.value(), v.output.value());
 					RAC(lp, true);
 					launchpad_automatic_map_[k] = lp;
@@ -487,7 +494,7 @@ namespace uniq::launchpad
 		if (size < 3) return;
 		auto& note = data[0];
 		const auto x = data[1] % 10;
-		const auto y = data[1] / 10;
+		const auto y = min(max(data[1] / 10, 0), 9);
 		const auto v = data[2];
 		SpinLock::ScopedLockType lock(mutex);
 		auto input_callback_function_map = input_callback_function_map_;
@@ -579,7 +586,29 @@ namespace uniq::launchpad
 		}
 		deviceManager.reset();
 	}
-	
+
+	bool launchpad::parent_ID_add(const id_t id)
+	{
+		if (parent_ID_set_.contains(id)) return false;
+		parent_ID_set_.insert(id);
+		return true;
+	}
+
+	bool launchpad::parent_ID_remove(const id_t id)
+	{
+		return parent_ID_set_.erase(id) != 0;
+	}
+
+	auto launchpad::parent_ID_get() const -> std::set<id_t>
+	{
+		return parent_ID_set_;
+	}
+
+	size_t launchpad::parent_ID_count() const
+	{
+		return parent_ID_set_.size();
+	}
+
 	bool launchpad::midi_input_set(const midi_device_info& mdi_input)
 	{
 		if (input)
@@ -593,7 +622,7 @@ namespace uniq::launchpad
 			log::error("input is null");
 			return false;
 		}
-		midi_input_kind_name = mdi_input.kind_name;
+		midi_input_kind = mdi_input.kind;
 		input->start();
 		return true;
 		
@@ -611,7 +640,37 @@ namespace uniq::launchpad
 			log::error("output is null");
 			return false;
 		}
-		midi_output_kind_name = mdi_output.kind_name;
+		midi_output_kind = mdi_output.kind;
+		switch (midi_output_kind)
+		{
+			case launchpad_kind::launchpad:
+				copy_n("00'20'29'02'00'00"_hex, 6, LED_raw_data.get()); //TODO: 확인 필요
+			break;
+			case launchpad_kind::launchpad_s:
+				copy_n("00'20'29'02'00'00"_hex, 6, LED_raw_data.get()); //TODO: 확인 필요
+			break;
+			case launchpad_kind::launchpad_mini:
+				copy_n("00'20'29'02'00'00"_hex, 6, LED_raw_data.get()); //TODO: 확인 필요
+			break;
+			case launchpad_kind::launchpad_pro:
+				copy_n("00'20'29'02'10'0B"_hex, 6, LED_raw_data.get());
+			break;
+			case launchpad_kind::launchpad_mk2:
+				copy_n("00'20'29'02'18'0B"_hex, 6, LED_raw_data.get());
+			break;
+			case launchpad_kind::launchpad_x:
+				copy_n("00'20'29'02'0C'03"_hex, 6, LED_raw_data.get());
+			break;
+			case launchpad_kind::launchpad_mini_mk3:
+				copy_n("00'20'29'02'0D'03"_hex, 6, LED_raw_data.get());
+			break;
+			case launchpad_kind::launchpad_pro_mk3:
+				copy_n("00'20'29'02'0E'03"_hex, 6, LED_raw_data.get());
+			break;
+			default:
+				log::error("지원되지 않는 launchpad_kind입니다.");
+				return false;
+		}
 		return true;
 	}
 	
@@ -813,8 +872,38 @@ namespace uniq::launchpad
 	
 	void launchpad::program_mode_set(const bool flag)
 	{
-		auto t = "00'20'29'02'0D'0E'01"_hex;
-		auto f = "00'20'29'02'0D'0E'00"_hex;
+		const uint8* t;
+		const uint8* f;
+		switch (midi_output_kind)
+		{
+			case launchpad_kind::launchpad:
+			case launchpad_kind::launchpad_s:
+			case launchpad_kind::launchpad_mini:
+				log::warn("program_mode_set은 지원되지 않는 launchpad_kind입니다.");
+			break;
+			case launchpad_kind::launchpad_pro:
+				t = "00'20'29'02'10'2C'03"_hex;
+				f = "00'20'29'02'10'2C'00"_hex;
+			break;
+			case launchpad_kind::launchpad_mk2:
+				log::warn("program_mode_set은 지원되지 않는 launchpad_kind입니다.");
+			break;
+			case launchpad_kind::launchpad_x:
+				t = "00'20'29'02'0C'0E'01"_hex;
+				f = "00'20'29'02'0C'0E'00"_hex;
+			break;
+			case launchpad_kind::launchpad_mini_mk3:
+				t = "00'20'29'02'0D'0E'01"_hex;
+				f = "00'20'29'02'0D'0E'00"_hex;
+			break;
+			case launchpad_kind::launchpad_pro_mk3:
+				t = "00'20'29'02'0E'0E'01"_hex;
+				f = "00'20'29'02'0E'0E'00"_hex;
+			break;
+			default:
+				log::error("지원되지 않는 launchpad_kind입니다.");
+				return;
+		}
 		MidiMessage 메시지 = MidiMessage::createSysExMessage(flag ? t : f, 7);
 		message_send_now(메시지);
 	}
@@ -888,14 +977,24 @@ namespace uniq::launchpad
 		return output->getIdentifier().toStdString();
 	}
 
+	launchpad_kind launchpad::input_kind_get() const
+	{
+		return midi_input_kind;
+	}
+
+	launchpad_kind launchpad::output_kind_get() const
+	{
+		return midi_output_kind;
+	}
+
 	std::string launchpad::input_kind_name_get() const
 	{
-		return midi_input_kind_name;
+		return launchpad_kind_name_map.at(midi_input_kind);
 	}
 
 	std::string launchpad::output_kind_name_get() const
 	{
-		return midi_output_kind_name;
+		return launchpad_kind_name_map.at(midi_output_kind);
 	}
 
 	std::string launchpad::input_name_get() const

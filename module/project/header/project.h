@@ -184,6 +184,7 @@ namespace uniq::project
 			void hiResTimerCallback() override;
 		} guide_timer_{this};
 		std::chrono::milliseconds guide_timer_interval_{10};
+		bool guide_start_first_flag_{true};
 		bool guide_start_{false};
 		bool guide_play_{false};
 		spin_lock guide_update_lock_;

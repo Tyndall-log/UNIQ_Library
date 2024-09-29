@@ -12,11 +12,37 @@ namespace uniq::launchpad
 {
 	class launchpad;
 
+	enum class launchpad_kind
+	{
+		none,
+		unknown,
+		launchpad,
+		launchpad_s,
+		launchpad_mini,
+		launchpad_pro,
+		launchpad_mk2,
+		launchpad_x,
+		launchpad_mini_mk3,
+		launchpad_pro_mk3,
+	};
+	static const std::map<launchpad_kind, std::string> launchpad_kind_name_map = {
+		{launchpad_kind::none, "None"},
+		{launchpad_kind::unknown, "Unknown Novation Launchpad"},
+		{launchpad_kind::launchpad, "Novation Launchpad"},
+		{launchpad_kind::launchpad_s, "Novation Launchpad S"},
+		{launchpad_kind::launchpad_mini, "Novation Launchpad Mini"},
+		{launchpad_kind::launchpad_pro, "Novation Launchpad Pro"},
+		{launchpad_kind::launchpad_mk2, "Novation Launchpad MK2"},
+		{launchpad_kind::launchpad_x, "Novation Launchpad X"},
+		{launchpad_kind::launchpad_mini_mk3, "Novation Launchpad Mini MK3"},
+		{launchpad_kind::launchpad_pro_mk3, "Novation Launchpad Pro MK3"},
+	};
+
 	class launchpad_manager
 	{
-		static const std::map<std::string, std::tuple<std::string, juce::uint8>> VPID_map;
-		static const std::map<std::string, std::string> android_launchpad_map;
-		static const std::list<std::tuple<std::string, std::string>> apple_launchpad_list;
+		static const std::map<std::string, std::tuple<launchpad_kind, std::uint8_t, std::uint8_t>> VPID_map;
+		static const std::map<std::string, launchpad_kind> android_launchpad_map;
+		static const std::list<std::tuple<std::string, launchpad_kind>> apple_launchpad_list;
 
 		struct launchpad_change_callback_set_compare
 		{
@@ -28,9 +54,11 @@ namespace uniq::launchpad
 		class midi_device_info : public juce::MidiDeviceInfo
 		{
 		public:
-			std::string kind_name = "none";
+			// std::string kind_name = "none";
+			launchpad_kind kind = launchpad_kind::none;
 			explicit midi_device_info(const MidiDeviceInfo&& info);
-			midi_device_info(const MidiDeviceInfo&& info, const juce::String& name);
+			// midi_device_info(const MidiDeviceInfo&& info, const juce::String& name);
+			midi_device_info(const MidiDeviceInfo&& info, launchpad_kind kind);
 		};
 		struct input_output
 		{
@@ -55,7 +83,7 @@ namespace uniq::launchpad
 		inline static std::future<void> launchpad_map_update_future_;
 		inline static std::set<std::weak_ptr<std::function<void()>>, launchpad_change_callback_set_compare> launchpad_change_callback_set_;
 
-		static std::string launchpad_kind_name_get(juce::MidiDeviceInfo& mdi);
+		static launchpad_kind launchpad_kind_get(juce::MidiDeviceInfo &mdi);
 		static std::string launchpad_device_identifier_get(juce::MidiDeviceInfo& mdi);
 		static auto get_available_input_list() -> std::vector<midi_device_info>;
 		static auto get_available_output_list() -> std::vector<midi_device_info>;
@@ -86,8 +114,11 @@ namespace uniq::launchpad
 		static std::unique_ptr<LED_global_timer> LED_timer;
 		static juce::SpinLock mutex;
 
-		std::string midi_input_kind_name;
-		std::string midi_output_kind_name;
+		std::set<id_t> parent_ID_set_;
+		// std::string midi_input_kind_name;
+		// std::string midi_output_kind_name;
+		launchpad_kind midi_input_kind;
+		launchpad_kind midi_output_kind;
 		std::shared_ptr<juce::AudioDeviceManager> deviceManager;
 		std::unique_ptr<juce::MidiInput> input;
 		std::unique_ptr<juce::MidiOutput> output;
@@ -157,6 +188,11 @@ namespace uniq::launchpad
 		launchpad(const std::shared_ptr<audio_device_manager>&, const midi_device_info*, const midi_device_info*);
 		launchpad(const std::shared_ptr<audio_device_manager>&, const input_output&);
 		~launchpad();
+
+		bool parent_ID_add(id_t id);
+		bool parent_ID_remove(id_t id);
+        [[nodiscard]] auto parent_ID_get() const -> std::set<id_t>;
+		[[nodiscard]] std::size_t parent_ID_count() const;
 		
 		bool midi_input_set(const midi_device_info&);
 		bool midi_output_set(const midi_device_info&);
@@ -185,6 +221,8 @@ namespace uniq::launchpad
 		bool input_button_up_callback_remove(int callback_id);
 		[[nodiscard]] std::string input_identifier_get() const;
 		[[nodiscard]] std::string output_identifier_get() const;
+		[[nodiscard]] launchpad_kind input_kind_get() const;
+		[[nodiscard]] launchpad_kind output_kind_get() const;
 		[[nodiscard]] std::string input_kind_name_get() const;
 		[[nodiscard]] std::string output_kind_name_get() const;
 		[[nodiscard]] std::string input_name_get() const;
