@@ -33,7 +33,14 @@ namespace uniq::api
 		}
 		API_raii(API_raii&& other) noexcept = default;
 		API_raii& operator=(API_raii&& other) noexcept = default;
-		~API_raii() { if (ptr_) core::workspace_preset::workspace_info.reset(); }
+		~API_raii()
+		{
+			if (ptr_)
+			{
+				ptr_.reset();
+				core::workspace_preset::workspace_info.reset();
+			}
+		}
 
 		T* get() const { return ptr_.get(); }
 		T& operator*() const { return *ptr_; }
@@ -45,4 +52,6 @@ namespace uniq::api
 			return API_raii(id, location);
 		}
 	};
+
+	API void id_list_delete(const id_t *id_list);
 }

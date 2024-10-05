@@ -27,10 +27,10 @@ namespace uniq::launchpad
 		return result;
 	}
 
-	API void launchpad_list_get_delete(const id_t *launchpad_list)
-	{
-		delete[] launchpad_list;
-	}
+	// API void launchpad_list_get_delete(const id_t *launchpad_list)
+	// {
+	// 	delete[] launchpad_list;
+	// }
 #pragma endregion launchpad_manager
 
 #pragma region launchpad

@@ -53,6 +53,14 @@ namespace uniq::unipack
 		static auto keyled_part(juce::ZipFile &zip, std::vector<std::tuple<juce::String, int>> &zip_list, const juce::String &root_path,
 			std::vector<keyled_info> keyled_list[8][8][8])
 			-> bool;
+		static auto autoplay_read(
+			juce::ZipFile& zip,
+			std::vector<std::tuple<juce::String, int>> zip_list,
+			const juce::String& root_path, const std::shared_ptr<project::project> &uniq,
+			std::map<std::string, std::shared_ptr<audio_source>> sound_source_map,
+			std::vector<keysound_info> keysound_grid[8][8][8],
+			std::vector<keyled_info> keyled_grid[8][8][8])
+			-> void;
 	public:
 
 		static auto load(const std::string& zip_path) -> std::shared_ptr<project::project>;

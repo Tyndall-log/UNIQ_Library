@@ -19,7 +19,8 @@ namespace uniq::workspace
 	public:
 		workspace();
 
-		void uniq_add(const std::shared_ptr<project::project>& uniq);
+		std::shared_ptr<project::project> uniq_create();
+		bool uniq_add(const std::shared_ptr<project::project> &uniq);
 		bool uniq_remove(const std::shared_ptr<project::project>& uniq);
 		[[nodiscard]] std::vector<std::shared_ptr<project::project>> uniq_list_get() const;
 		void name_set(const std::string& name);

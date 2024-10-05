@@ -64,7 +64,11 @@ cmake ..
 cmake --build . --target UNIQ_library
 ```
 
-#### Option 2. JUCE Projucer
+##### CMake 옵션
+
+`-DCOPY_PATH=<path>`: 빌드 후 라이브러리를 복사할 경로를 지정합니다.
+
+#### Option 2. JUCE Projucer (비권장|더 이상 관리되지 않음)
 
 JUCE Projucer가 설치되어 있다면, "UNIQ_library.jucer"를 열어 간단하게 빌드할 수 있습니다.
 다만, 종속 라이브러리를 수동으로 설치해야 합니다.

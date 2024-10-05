@@ -17,9 +17,19 @@ namespace uniq::workspace
 		workspace_ID_set(ID_get());
 	}
 
-	void workspace::uniq_add(const std::shared_ptr<project::project> &uniq)
+	std::shared_ptr<project::project> workspace::uniq_create()
 	{
+		const auto uniq = project::project::create();
+		uniq_add(uniq);
+		return uniq;
+	}
+
+	bool workspace::uniq_add(const std::shared_ptr<project::project> &uniq)
+	{
+		if (!uniq) return false;
+		if (ranges::find(uniq_list, uniq) != uniq_list.end()) return false;
 		uniq_list.push_back(uniq);
+		return true;
 	}
 
 	bool workspace::uniq_remove(const std::shared_ptr<project::project> &uniq)

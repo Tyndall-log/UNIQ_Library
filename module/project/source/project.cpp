@@ -104,6 +104,7 @@ namespace uniq::project
 	void timeline::name_set(const std::string &name)
 	{
 		name_ = name;
+		core::api::callback_manager.RAC(ID_get(), name_);
 	}
 
 	bool timeline::group_add(const std::shared_ptr<timeline_group> &group)
@@ -128,7 +129,7 @@ namespace uniq::project
 		};
 		auto& button_x = group->button_x;
 		auto& button_x_callback_id_list = group_callback_->button_x_callback_id_list;
-		button_x_callback_id_list.reserve(2);
+		// button_x_callback_id_list.reserve(button_x_callback_id_list.size() + 2);
 		button_x_callback_id_list.push_back(button_x.callback_add<callback_mode::change_before>(
 			button_change_before_callback
 		));
@@ -137,7 +138,7 @@ namespace uniq::project
 		));
 		auto& button_y = group->button_y;
 		auto& button_y_callback_id_list = group_callback_->button_y_callback_id_list;
-		button_y_callback_id_list.reserve(2);
+		// button_y_callback_id_list.reserve(button_y_callback_id_list.size() + 2);
 		button_y_callback_id_list.push_back(button_y.callback_add<callback_mode::change_before>(
 			button_change_before_callback
 		));
@@ -151,7 +152,7 @@ namespace uniq::project
 		}
 		auto& cue = group->start_cue->cue_point;
 		auto& start_cue_callback_id_list = group_callback_->start_cue_callback_id_list;
-		start_cue_callback_id_list.reserve(2);
+		// start_cue_callback_id_list.reserve(start_cue_callback_id_list.size() + 2);
 		start_cue_callback_id_list.push_back(cue.callback_add<callback_mode::change_before>(
 			[&](const auto&)
 			{
@@ -173,6 +174,7 @@ namespace uniq::project
 		const auto& x = group->button_x.get();
 		const auto& y = group->button_y.get();
 		key_group_grid_[x][y].insert(group);
+		core::api::callback_manager.RAC(ID_get(), group->ID_get());
 		return true;
 	}
 
@@ -204,6 +206,7 @@ namespace uniq::project
 			group->start_cue->cue_point.callback_remove(id);
 		}
 		group_callback_set_.erase(it);
+		core::api::callback_manager.RAC(ID_get(), group->ID_get());
 		return true;
 	}
 
@@ -808,6 +811,11 @@ namespace uniq::project
 		}
 		audio_source_add(audio_source);
 		return audio_source;
+	}
+
+	void project::timeline_group_duration_auto_set(bool for_unset)
+	{
+		//TODO: 구현
 	}
 
 	project::internal::internal(project *uniq) : uniq_(uniq)

@@ -26,7 +26,7 @@ namespace uniq::project
 		using press_duration_t = timeline_cue::cue_point_t;
 		chain<int8_t> button_x{this, 0};
 		chain<int8_t> button_y{this, 0};
-		press_duration_t press_duration {0};
+		press_duration_t press_duration {std::chrono::microseconds(100)};
 		std::shared_ptr<audio_segment> segment;
 		std::shared_ptr<timeline_cue> start_cue;
 		// std::shared_ptr<lightshow::rgbav_sequence_grid> rgbav_grid;
@@ -226,6 +226,8 @@ namespace uniq::project
 		void producer_name_set(const std::string& producer_name);
 		[[nodiscard]] std::shared_ptr<audio_player> player_get() const;
 		std::shared_ptr<audio_source> audio_load(const std::string &path);
+		void timeline_group_duration_auto_set(bool for_unset = true);
+
 		struct internal
 		{
 			project* uniq_;

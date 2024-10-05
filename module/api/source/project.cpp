@@ -201,4 +201,38 @@ namespace uniq::project
 		_project->pad_button_touch(x, y, velocity);
 	}
 #pragma endregion project
+
+#pragma region timeline
+	void * timeline_name_get(const id_t timeline_id)
+	{
+		const API_raii<timeline> _timeline(timeline_id);
+		if (!_timeline) return nullptr;
+		return strdup(_timeline->name_get().c_str());
+	}
+
+	API void timeline_name_set(const id_t timeline_id, const char *name)
+	{
+		const API_raii<timeline> _timeline(timeline_id);
+		if (!_timeline) return;
+		_timeline->name_set(name);
+	}
+
+	API void timeline_group_add(const id_t timeline_id, const id_t group_id)
+	{
+		const API_raii<timeline> _timeline(timeline_id);
+		if (!_timeline) return;
+		const auto _group = core::ID_manager::get_shared_ptr<timeline_group>(group_id);
+		if (!_group) return;
+		_timeline->group_add(_group);
+	}
+
+	API void timeline_group_remove(const id_t timeline_id, const id_t group_id)
+	{
+		const API_raii<timeline> _timeline(timeline_id);
+		if (!_timeline) return;
+		const auto _group = core::ID_manager::get_shared_ptr<timeline_group>(group_id);
+		if (!_group) return;
+		_timeline->group_remove(_group);
+	}
+#pragma endregion timeline
 }

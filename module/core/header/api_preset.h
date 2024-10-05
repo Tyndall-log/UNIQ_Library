@@ -79,10 +79,8 @@ namespace uniq::core::api
 		API_callback_message(const API_callback_message&) = delete;
 		API_callback_message& operator=(const API_callback_message&) = delete;
 		~API_callback_message() override {
-			if (default_name != obj_id_type_name)
-				delete obj_id_type_name;
-			if (default_name != func_id_name)
-				delete func_id_name;
+			if (default_name != obj_id_type_name) delete obj_id_type_name;
+			if (default_name != func_id_name) delete func_id_name;
 			delete static_cast<T*>(data_ptr);
 		}
 		void set_obj_id_type_name(const char* type_name) { obj_id_type_name = strdup(type_name); }

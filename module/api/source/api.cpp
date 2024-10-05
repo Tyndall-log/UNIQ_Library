@@ -19,3 +19,8 @@ Java_com_uniq_ui_Uniq_apiInit(JNIEnv* env, jobject jclass, jobject context)
 }
 
 #endif
+
+void api::id_list_delete(const id_t *id_list)
+{
+	delete[] id_list;
+}

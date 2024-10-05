@@ -37,4 +37,11 @@ namespace uniq::project
 	API void pad_button_up(id_t project_id, uint8_t x, uint8_t y);
 	API void pad_button_touch(id_t project_id, uint8_t x, uint8_t y, uint8_t velocity);
 #pragma endregion project
+
+#pragma region timeline
+	API void *timeline_name_get(id_t timeline_id);
+	API void timeline_name_set(id_t timeline_id, const char *name);
+	API void timeline_group_add(id_t timeline_id, id_t group_id);
+	API void timeline_group_remove(id_t timeline_id, id_t group_id);
+#pragma endregion timeline
 }

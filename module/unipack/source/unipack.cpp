@@ -325,6 +325,234 @@ namespace uniq::unipack
 		return true;
 	}
 
+	void unipack::autoplay_read(
+		ZipFile& zip,
+		vector<tuple<String, int>> zip_list,
+		const String& root_path, const shared_ptr<project::project> &uniq,
+		map<string, shared_ptr<audio_source>> sound_source_map,
+		vector<keysound_info> keysound_grid[8][8][8],
+		vector<keyled_info> keyled_grid[8][8][8])
+	{
+		vector<shared_ptr<timeline_page>> timeline_page_list;
+		vector<shared_ptr<timeline>> timeline_list;
+		const auto autoPlay_iter = find_iter(zip_list, root_path, "autoPlay");
+		if (autoPlay_iter == zip_list.end())
+		{
+			log::warn("autoPlay 파일이 존재하지 않습니다.");
+			return;
+		}
+		unique_ptr<InputStream> autoPlay_stream(zip.createStreamForEntry(get<1>(*autoPlay_iter)));
+		if (!autoPlay_stream)
+		{
+			log::warn("autoPlay 파일을 읽을 수 없습니다.");
+			return;
+		}
+		timeline_list.emplace_back(uniq->timeline_create("autoPlay"));
+		auto main_timeline = timeline_list.back();
+		// log::info(autoPlay_stream->readEntireStreamAsString().replace("\r","").toStdString());
+		project::project::cue_point_t cumulative_delay{0};
+		auto current_chain_num = 0;
+		auto chain_delay = 0us;
+		uint16_t press_count[8][8] = {};
+		// vector<shared_ptr<timeline_group>> key_group_list_grid[8][8] = {};
+		auto on_off_touch = [&]<autoplay_command_type type>(const String &line, const StringArray &tokens)
+		{
+			using act = autoplay_command_type;
+			string command;
+			if constexpr (type == act::on) command = "on";
+			else if constexpr (type == act::off) command = "off";
+			else if constexpr (type == act::touch) command = "touch";
+
+			if (current_chain_num == 0)
+			{
+				// log::warn("chain 명령어가 먼저 나와야 합니다: \"" + line.toStdString() + "\"");
+				current_chain_num = 1;
+
+				auto page = uniq->timeline_page_find_floor(0us);
+				page->next_page_set(page, {9, 8});
+				timeline_page_list.emplace_back(page);
+			}
+
+			if (tokens.size() < 3)
+			{
+				log::warn(command + " 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");;
+				return false;
+			}
+			uint8_t y = 9 - tokens[1].getIntValue();
+			uint8_t x = tokens[2].getIntValue();
+			if (y < 0 || 8 < y || x < 0 || 8 < x)
+			{
+				log::warn(command + " 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
+				return false;
+			}
+			// log::info("touch: " + to_string(x) + ", " + to_string(y));
+			chain_delay = 1ms; //체인이 바로 나오는 경우, 버튼이 눌리기 전에 체인이 바뀌는 것을 방지
+			if constexpr (type == act::on || type == act::touch)
+			{
+				auto group = timeline_group::create();
+				group->button_x.set(static_cast<int8_t>(x));
+				group->button_y.set(static_cast<int8_t>(y));
+				group->press_duration = -1ms; //정의되지 않은 값
+				// group->segment = sound_source_map["test"];
+				//keyled_list
+				const auto &keyled_list = keyled_grid[current_chain_num - 1][x - 1][y - 1];
+				if (!keyled_list.empty())
+				{
+					const auto &keyled = keyled_list[press_count[x - 1][y - 1] % keyled_list.size()];
+					// group->rgbav_grid = make_shared<lightshow::rgbav_sequence_grid>(keyled.rgbav_grid);
+					group->lightshow_data = lightshow::lightshow_data::create(keyled.rgbav_grid, keyled.repeat);
+				}
+
+				//keysound_list
+				const auto &keysound_list = keysound_grid[current_chain_num - 1][x - 1][y - 1];
+				if (keysound_list.empty())
+				{
+					log::warn("autoPlay가 빈 버튼을 누릅니다: \"" + line.toStdString() + "\"");
+					return false;
+				}
+				const auto &keysound = keysound_list[press_count[x - 1][y - 1] % keysound_list.size()];
+				press_count[x - 1][y - 1]++;
+				auto sound_source_iter = sound_source_map.find(keysound.name);
+				if (sound_source_iter == sound_source_map.end())
+				{
+					log::warn("누락된 keysound: \"" + keysound.name + "\"");
+					return false;
+				}
+				group->segment = sound_source_iter->second->segment_create(0);
+				group->start_cue = timeline_cue::create(cumulative_delay);
+				main_timeline->group_add(group);
+				// key_group_list_grid[x - 1][y - 1].emplace_back(group);
+				// cout << "d "<<group->segment->cue_length_get() << endl;
+			}
+			else if constexpr (type == act::off)
+			{
+				const auto group_set = main_timeline->internal.key_group_get(x, y);
+				if (group_set.empty())
+				{
+					log::warn("off 명령어에 대응되는 on 명령어가 없습니다: \"" + line.toStdString() + "\"");
+					return false;
+				}
+				const auto group = *group_set.rbegin();
+				group->press_duration = cumulative_delay - *group->start_cue->cue_point;
+			}
+			return true;
+		};
+		bom_skip(*autoPlay_stream);
+		while(!autoPlay_stream->isExhausted())
+		{
+			auto line = autoPlay_stream->readNextLine();
+			if (line.isEmpty()) continue;
+			auto tokens = StringArray::fromTokens(line, false);
+			if (tokens.size() < 2)
+			{
+				log::warn("autoPlay 파일에 해석할 수 없는 줄이 있습니다: \"" + line.toStdString() + "\"");
+				continue;
+			}
+			// log::info("line: " + line.toStdString());
+			String command = tokens[0].trim().toLowerCase();
+			if (command == "chain" || command == "c")
+			{
+				auto chain_num = tokens[1].getIntValue();
+				if (chain_num < 1 || 8 < chain_num)
+				{
+					log::warn("autoPlay 파일에 범위를 벗어난 chain_num이 있습니다: \"" + line.toStdString() + "\"");
+					continue;
+				}
+				// if (current_chain_num == chain_num) continue;
+				current_chain_num = chain_num;
+				//press_count 초기화
+				fill_n(&press_count[0][0], 8 * 8, 0);
+				if (timeline_page_list.empty())
+				{
+					auto page = uniq->timeline_page_find_floor(0us);
+					page->next_page_set(page, {9, 8});
+					timeline_page_list.emplace_back(page);
+				}
+				else
+				{
+					// auto first_page = timeline_page_list.front();
+					auto last_page = timeline_page_list.back();
+					auto page = uniq->timeline_page_create(cumulative_delay + chain_delay);
+					for (auto y = 1; y <= 8; y++)
+					{
+						auto tp = last_page->next_page_get({9, y});
+						if (9 - chain_num != y)
+						{
+							if (tp) page->next_page_set(tp, {9, y});
+						}
+						else
+						{
+							if (tp)
+							{
+								auto it = timeline_page_list.rbegin();
+								while (it != timeline_page_list.rend())
+								{
+									if (tp != (*it)->next_page_get({9, y})) break;
+									(*it)->next_page_set(page, {9, y});
+									if (tp == *it) break;
+									++it;
+								}
+								page->next_page_set(tp, {9, y});
+							}
+							else
+							{
+								for (const auto& e : timeline_page_list)
+								{
+									e->next_page_set(page, {9, y});
+								}
+								page->next_page_set(page, {9, y});
+							}
+						}
+					}
+					timeline_page_list.emplace_back(page);
+				}
+
+				// //페이지 연결 상태 표시
+				// for (auto& page : timeline_page_list)
+				// {
+				// 	String s = String::formatted("%05d:", page->ID_get());
+				// 	for (auto y = 8; y >= 1; y--)
+				// 	{
+				// 		auto tp = page->next_page_get({9, y});
+				// 		if (tp)
+				// 		{
+				// 			//id를 4자리에 맞추어 출력
+				// 			s += String::formatted(" %05d", tp->ID_get());
+				// 		}
+				// 	}
+				// 	log::info(s.toStdString());
+				// }
+			}
+			else if (command == "on" || command == "o")
+			{
+				on_off_touch.operator()<autoplay_command_type::on>(line, tokens);
+			}
+			else if (command == "off" || command == "f")
+			{
+				on_off_touch.operator()<autoplay_command_type::off>(line, tokens);
+			}
+			else if (command == "touch" || command == "t")
+			{
+				on_off_touch.operator()<autoplay_command_type::touch>(line, tokens);
+			}
+			else if (command == "delay" || command == "d")
+			{
+				auto delay = static_cast<int>(tokens[1].getDoubleValue() * 1000);
+				if (delay < 0)
+				{
+					log::warn("음수 delay가 있습니다: \"" + line.toStdString() + "\"");
+					continue;
+				}
+				cumulative_delay += 1us * delay;
+				chain_delay = 0us;
+			}
+			else
+			{
+				log::warn("autoPlay 파일에 알 수 없는 명령어가 있습니다: \"" + line.toStdString() + "\"");
+			}
+		}
+	}
+
 	auto unipack::load(const string &zip_path) -> std::shared_ptr<project::project>
 	{
 		const File file(zip_path);
@@ -347,37 +575,6 @@ namespace uniq::unipack
 			zip_list.emplace_back(zip.getEntry(i)->filename, i);
 		}
 
-		// //test
-		// {
-		// 	string zl[] = {
-		// 		"info",
-		// 		"Info",
-		// 		"INFO",
-		// 		"keySound",
-		// 		"zzz",
-		// 		"unipack1/info",
-		// 		"unipack1/Info",
-		// 		"unipack1/INFO",
-		// 		"Unipack1/info",
-		// 		"Unipack1/Info",
-		// 		"Unipack1/INFO",
-		// 		"UNIPACK1/info",
-		// 		"UNIPACK1/Info",
-		// 		"UNIPACK1/INFO",
-		// 		"unipack1/keySound",
-		// 		"unipack2/info",
-		// 		"unipack2/keySound",
-		// 		"unipack12/info",
-		// 		"unipack12/keySound",
-		// 	};
-		//
-		// 	zip_list.clear();
-		// 	for (int i = 0; i < std::size(zl); i++)
-		// 	{
-		// 		zip_list.emplace_back(zl[i], i);
-		// 	}
-		// }
-
 		//정렬
 		auto compare = [](const tuple<String, int>& a, const tuple<String, int>& b) {
 			auto f = get<0>(a).compareNatural(get<0>(b), false);
@@ -386,12 +583,6 @@ namespace uniq::unipack
 			return f < 0;
 		};
 		ranges::sort(zip_list, compare);
-
-		// //출력
-		// for (auto& [name, index] : zip_list)
-		// {
-		// 	log::info(name.toStdString()+", "+to_string(index));
-		// }
 
 		vector<String> root_path_list;
 		for (auto& [name, index] : zip_list)
@@ -416,28 +607,6 @@ namespace uniq::unipack
 			log::error("info 파일이 존재하지 않습니다.");
 			return nullptr;
 		}
-
-		// // 출력
-		// for (auto& name : root_path_list)
-		// {
-		// 	log::info("root_path: "s+name.toStdString());
-		// }
-
-
-		// auto find_index = [&](const String& path, const String& name) {
-		// 	const auto iter1 = std::lower_bound(zip_list.begin(), zip_list.end(),
-		// 		path + name.toLowerCase(), find_index_compare);
-		// 	if (iter1 == zip_list.end() || get<0>(*iter1).length() != path.length() + name.length() ||
-		// 		!get<0>(*iter1).startsWith(path) || !get<0>(*iter1).endsWithIgnoreCase(name))
-		// 		return -1;
-		// 	const auto iter2 = std::lower_bound(iter1, zip_list.end(),
-		// 		path + name, find_index_compare);
-		// 	if (iter2 == zip_list.end())
-		// 		return -1;
-		// 	if (get<0>(*iter2).compare(path + name) != 0)
-		// 		return get<1>(*iter1);
-		// 	return get<1>(*iter2);
-		// };
 
 		// for (auto& root_path : root_path_list)
 		{
@@ -535,224 +704,15 @@ namespace uniq::unipack
 			}
 
 			//autoPlay 파일 읽기
-			vector<shared_ptr<timeline_page>> timeline_page_list;
-			vector<shared_ptr<timeline>> timeline_list;
-			while(uniq)
+			if(uniq)
 			{
-				const auto autoPlay_iter = find_iter(zip_list, root_path, "autoPlay");
-				if (autoPlay_iter == zip_list.end())
-				{
-					log::warn("autoPlay 파일이 존재하지 않습니다.");
-					break;
-				}
-				unique_ptr<InputStream> autoPlay_stream(zip.createStreamForEntry(get<1>(*autoPlay_iter)));
-				if (!autoPlay_stream)
-				{
-					log::warn("autoPlay 파일을 읽을 수 없습니다.");
-					break;
-				}
-				timeline_list.emplace_back(uniq->timeline_create("autoPlay"));
-				auto main_timeline = timeline_list.back();
-				// log::info(autoPlay_stream->readEntireStreamAsString().replace("\r","").toStdString());
-				project::project::cue_point_t cumulative_delay{0};
-				auto current_chain_num = 0;
-				auto chain_delay = 0us;
-				uint16_t press_count[8][8] = {};
-				auto on_off_touch = [&]<autoplay_command_type type>(const String &line, const StringArray &tokens)
-				{
-					using act = autoplay_command_type;
-					string command;
-					if constexpr (type == act::on) command = "on";
-					else if constexpr (type == act::off) command = "off";
-					else if constexpr (type == act::touch) command = "touch";
+				autoplay_read(zip, zip_list, root_path, uniq, sound_source_map, keysound_grid, keyled_grid);
+			}
 
-					if (current_chain_num == 0)
-					{
-						// log::warn("chain 명령어가 먼저 나와야 합니다: \"" + line.toStdString() + "\"");
-						current_chain_num = 1;
-
-						auto page = uniq->timeline_page_find_floor(0us);
-						page->next_page_set(page, {9, 8});
-						timeline_page_list.emplace_back(page);
-					}
-
-					if (tokens.size() < 3)
-					{
-						log::warn(command + " 명령어에 인자가 부족합니다: \"" + line.toStdString() + "\"");;
-						return false;
-					}
-					uint8_t y = 9 - tokens[1].getIntValue();
-					uint8_t x = tokens[2].getIntValue();
-					if (y < 0 || 8 < y || x < 0 || 8 < x)
-					{
-						log::warn(command + " 명령어에 범위를 벗어난 값이 있습니다: \"" + line.toStdString() + "\"");
-						return false;
-					}
-					// log::info("touch: " + to_string(x) + ", " + to_string(y));
-					chain_delay = 1ms;
-					if constexpr (type == act::on || type == act::touch)
-					{
-						auto group = timeline_group::create();
-						group->button_x.set(static_cast<int8_t>(x));
-						group->button_y.set(static_cast<int8_t>(y));
-						group->press_duration = -1ms; //정의되지 않은 값
-						// group->segment = sound_source_map["test"];
-						//keyled_list
-						const auto &keyled_list = keyled_grid[current_chain_num - 1][x - 1][y - 1];
-						if (!keyled_list.empty())
-						{
-							const auto &keyled = keyled_list[press_count[x - 1][y - 1] % keyled_list.size()];
-							// group->rgbav_grid = make_shared<lightshow::rgbav_sequence_grid>(keyled.rgbav_grid);
-							group->lightshow_data = lightshow::lightshow_data::create(keyled.rgbav_grid, keyled.repeat);
-						}
-
-						//keysound_list
-						const auto &keysound_list = keysound_grid[current_chain_num - 1][x - 1][y - 1];
-						if (keysound_list.empty())
-						{
-							log::warn("autoPlay가 빈 버튼을 누릅니다: \"" + line.toStdString() + "\"");
-							return false;
-						}
-						const auto &keysound = keysound_list[press_count[x - 1][y - 1] % keysound_list.size()];
-						press_count[x - 1][y - 1]++;
-						auto sound_source_iter = sound_source_map.find(keysound.name);
-						if (sound_source_iter == sound_source_map.end())
-						{
-							log::warn("누락된 keysound: \"" + keysound.name + "\"");
-							return false;
-						}
-						group->segment = sound_source_iter->second->segment_create(0);
-						group->start_cue = timeline_cue::create(cumulative_delay);
-						main_timeline->group_add(group);
-						// cout << "d "<<group->segment->cue_length_get() << endl;
-					}
-					else if constexpr (type == act::off)
-					{
-						// auto group = timeline_group::create();
-						// group->button_x.set(static_cast<int8_t>(x));
-						// group->button_y.set(static_cast<int8_t>(y));
-						// group->press_duration = -1ms; //정의되지 않은 값
-						// group->segment = sound_source_map["test"];
-						// main_timeline->group_add(group);
-					}
-					return true;
-				};
-				bom_skip(*autoPlay_stream);
-				while(!autoPlay_stream->isExhausted())
-				{
-					auto line = autoPlay_stream->readNextLine();
-					if (line.isEmpty()) continue;
-					auto tokens = StringArray::fromTokens(line, false);
-					if (tokens.size() < 2)
-					{
-						log::warn("autoPlay 파일에 해석할 수 없는 줄이 있습니다: \"" + line.toStdString() + "\"");
-						continue;
-					}
-					// log::info("line: " + line.toStdString());
-					String command = tokens[0].trim().toLowerCase();
-					if (command == "chain" || command == "c")
-					{
-						auto chain_num = tokens[1].getIntValue();
-						if (chain_num < 1 || 8 < chain_num)
-						{
-							log::warn("autoPlay 파일에 범위를 벗어난 chain_num이 있습니다: \"" + line.toStdString() + "\"");
-							continue;
-						}
-						// if (current_chain_num == chain_num) continue;
-						current_chain_num = chain_num;
-						//press_count 초기화
-						fill_n(&press_count[0][0], 8 * 8, 0);
-						if (timeline_page_list.empty())
-						{
-							auto page = uniq->timeline_page_find_floor(0us);
-							page->next_page_set(page, {9, 8});
-							timeline_page_list.emplace_back(page);
-						}
-						else
-						{
-							// auto first_page = timeline_page_list.front();
-							auto last_page = timeline_page_list.back();
-							auto page = uniq->timeline_page_create(cumulative_delay + chain_delay);
-							for (auto y = 1; y <= 8; y++)
-							{
-								auto tp = last_page->next_page_get({9, y});
-								if (9 - chain_num != y)
-								{
-									if (tp) page->next_page_set(tp, {9, y});
-								}
-								else
-								{
-									if (tp)
-									{
-										auto it = timeline_page_list.rbegin();
-										while (it != timeline_page_list.rend())
-										{
-											if (tp != (*it)->next_page_get({9, y})) break;
-											(*it)->next_page_set(page, {9, y});
-											if (tp == *it) break;
-											++it;
-										}
-										page->next_page_set(tp, {9, y});
-									}
-									else
-									{
-										for (const auto& e : timeline_page_list)
-										{
-											e->next_page_set(page, {9, y});
-										}
-										page->next_page_set(page, {9, y});
-									}
-								}
-							}
-							timeline_page_list.emplace_back(page);
-						}
-
-						// //페이지 연결 상태 표시
-						// for (auto& page : timeline_page_list)
-						// {
-						// 	String s = String::formatted("%05d:", page->ID_get());
-						// 	for (auto y = 8; y >= 1; y--)
-						// 	{
-						// 		auto tp = page->next_page_get({9, y});
-						// 		if (tp)
-						// 		{
-						// 			//id를 4자리에 맞추어 출력
-						// 			s += String::formatted(" %05d", tp->ID_get());
-						// 		}
-						// 	}
-						// 	log::info(s.toStdString());
-						// }
-					}
-					else if (command == "on" || command == "o")
-					{
-						on_off_touch.operator()<autoplay_command_type::on>(line, tokens);
-					}
-					else if (command == "off" || command == "f")
-					{
-						on_off_touch.operator()<autoplay_command_type::off>(line, tokens);
-					}
-					else if (command == "touch" || command == "t")
-					{
-						on_off_touch.operator()<autoplay_command_type::touch>(line, tokens);
-					}
-					else if (command == "delay" || command == "d")
-					{
-						auto delay = static_cast<int>(tokens[1].getDoubleValue() * 1000);
-						if (delay < 0)
-						{
-							log::warn("음수 delay가 있습니다: \"" + line.toStdString() + "\"");
-							continue;
-						}
-						cumulative_delay += 1us * delay;
-						chain_delay = 0us;
-					}
-					else
-					{
-						log::warn("autoPlay 파일에 알 수 없는 명령어가 있습니다: \"" + line.toStdString() + "\"");
-					}
-
-				}
-				break;
+			//타임라인 그룹의 초기화 되지 않은 duration 설정
+			if (uniq)
+			{
+				uniq->timeline_group_duration_auto_set();
 			}
 
 			return uniq;

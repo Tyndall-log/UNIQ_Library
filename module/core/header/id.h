@@ -15,7 +15,8 @@ namespace uniq::core
 	class ID_manager final
 	{
 		template<typename T> friend class ID;
-		static std::unordered_map<id_t, std::any> registry_;
+		// static std::unordered_map<id_t, std::any> registry_;
+		static std::unordered_map<id_t, std::tuple<std::any, id_t>> registry_;
 		static id_t id_;
 		static spin_lock lock_;
 
@@ -29,7 +30,8 @@ namespace uniq::core
 		static void register_ID(const id_t id, std::shared_ptr<T> obj)
 		{
 			std::unique_lock lock(lock_);
-			registry_[id] = std::weak_ptr<T>(obj);
+			// registry_[id] = std::weak_ptr<T>(obj);
+			registry_[id] = std::make_tuple(std::weak_ptr<T>(obj), workspace_preset::workspace_info.get_id());
 		}
 		static void unregister_ID(id_t id);
 	public:
@@ -49,7 +51,7 @@ namespace uniq::core
 					+ "Please check if the object is created by "+ typeid(T).name() + "::create().");
 				return std::nullopt;
 			}
-			if (auto& second = it->second; second.has_value())
+			if (auto& [second, workspace_id] = it->second; second.has_value())
 			{
 				if (second.type() == typeid(std::weak_ptr<T>)) //bad_any_cast 방지
 				{
@@ -67,6 +69,41 @@ namespace uniq::core
 			auto _o = get_shared_ptr_o<T>(id);
 			if (!_o) return nullptr;
 			return _o.value();
+		}
+
+		static id_t get_workspace_ID(const id_t id)
+		{
+			if (id < static_cast<id_t>(api::predefined_ID::last))
+			{
+				log::error("ID " + std::to_string(id) + " is a predefined ID.");
+				return 0;
+			}
+			std::unique_lock lock(lock_);
+			const auto it = registry_.find(id);
+			if (it == registry_.end())
+			{
+				log::error("ID " + std::to_string(id) + " is not registered.");
+				return 0;
+			}
+			return std::get<1>(it->second);
+		}
+
+		static bool set_workspace_ID(const id_t id, const id_t workspace_id)
+		{
+			if (id < static_cast<id_t>(api::predefined_ID::last))
+			{
+				log::error("ID " + std::to_string(id) + " is a predefined ID.");
+				return false;
+			}
+			std::unique_lock lock(lock_);
+			const auto it = registry_.find(id);
+			if (it == registry_.end())
+			{
+				log::error("ID " + std::to_string(id) + " is not registered.");
+				return false;
+			}
+			std::get<1>(it->second) = workspace_id;
+			return true;
 		}
 	};
 
@@ -114,6 +151,7 @@ namespace uniq::core
 		void workspace_ID_set(const id_t workspace_id)
 		{
 			workspace_id_ = workspace_id;
+			// return ID_manager::set_workspace_ID(id_, workspace_id);
 		}
 	public:
 		ID(const ID&) = delete;
@@ -127,6 +165,7 @@ namespace uniq::core
 		[[nodiscard]] id_t workspace_ID_get() const
 		{
 			return workspace_id_;
+			// return ID_manager::get_workspace_ID(id_);
 		}
 	};
 }
