@@ -390,9 +390,9 @@ namespace uniq::unipack
 			if constexpr (type == act::on || type == act::touch)
 			{
 				auto group = timeline_group::create();
-				group->button_x.set(static_cast<int8_t>(x));
-				group->button_y.set(static_cast<int8_t>(y));
-				group->press_duration = -1ms; //정의되지 않은 값
+				group->button_x_set(static_cast<int8_t>(x));
+				group->button_y_set(static_cast<int8_t>(y));
+				group->press_duration_set(-1ms); //정의되지 않은 값
 				// group->segment = sound_source_map["test"];
 				//keyled_list
 				const auto &keyled_list = keyled_grid[current_chain_num - 1][x - 1][y - 1];
@@ -400,7 +400,7 @@ namespace uniq::unipack
 				{
 					const auto &keyled = keyled_list[press_count[x - 1][y - 1] % keyled_list.size()];
 					// group->rgbav_grid = make_shared<lightshow::rgbav_sequence_grid>(keyled.rgbav_grid);
-					group->lightshow_data = lightshow::lightshow_data::create(keyled.rgbav_grid, keyled.repeat);
+					group->lightshow_data_set(lightshow::lightshow_data::create(keyled.rgbav_grid, keyled.repeat));
 				}
 
 				//keysound_list
@@ -418,8 +418,8 @@ namespace uniq::unipack
 					log::warn("누락된 keysound: \"" + keysound.name + "\"");
 					return false;
 				}
-				group->segment = sound_source_iter->second->segment_create(0);
-				group->start_cue = timeline_cue::create(cumulative_delay);
+				group->segment_set(sound_source_iter->second->segment_create(0));
+				group->start_cue_set(timeline_cue::create(cumulative_delay));
 				main_timeline->group_add(group);
 				// key_group_list_grid[x - 1][y - 1].emplace_back(group);
 				// cout << "d "<<group->segment->cue_length_get() << endl;
@@ -433,7 +433,7 @@ namespace uniq::unipack
 					return false;
 				}
 				const auto group = *group_set.rbegin();
-				group->press_duration = cumulative_delay - *group->start_cue->cue_point;
+				group->press_duration_set(cumulative_delay - group->start_cue_get()->cue_point_get());
 			}
 			return true;
 		};

@@ -119,7 +119,13 @@ namespace uniq::core
 		id_t id_ = 0; //api::predefined_ID::last보다 작은 값은 사용하지 않습니다.
 		id_t workspace_id_ = workspace_preset::workspace_info.get_id();
 	protected:
-		ID() : id_(ID_manager::generate_ID()) {}
+		ID() : id_(ID_manager::generate_ID())
+		{
+			#ifdef UNIQ_DLL_API
+			// ID를 상속받은 클래스가 생성될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
+			api::callback_manager.add_create_ID(id_);
+			#endif
+		}
 		~ID()
 		{
 			ID_manager::unregister_ID(id_);
@@ -141,10 +147,10 @@ namespace uniq::core
 			std::shared_ptr<T> sp = std::make_shared<make_shared_enabler>(std::forward<K>(args)...);
 
 			ID_manager::register_ID(sp->id_, sp);
-			#ifdef UNIQ_DLL_API
-			// ID를 상속받은 클래스가 생성될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
-			api::callback_manager.add_create_ID(sp->id_);
-			#endif
+			// #ifdef UNIQ_DLL_API
+			// // ID를 상속받은 클래스가 생성될 때마다 부여받은 ID를 콜백 매니저에 알립니다.
+			// api::callback_manager.add_create_ID(sp->id_);
+			// #endif
 			return sp;
 		}
 	protected:

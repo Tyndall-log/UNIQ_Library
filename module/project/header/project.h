@@ -16,22 +16,68 @@ namespace uniq::project
 		using cue_point_t = std::chrono::duration<int64_t, std::micro>;
 	protected:
 		explicit timeline_cue(cue_point_t cue_point);
+		chain<cue_point_t> cue_point_ {this, std::chrono::microseconds(0)};
 	public:
-		chain<cue_point_t> cue_point {this, std::chrono::microseconds(0)};
+		void cue_point_set(cue_point_t cue_point);
+		[[nodiscard]] cue_point_t cue_point_get() const;
+		template<callback_mode mode>
+		[[nodiscard]] int cue_point_callback_add(std::function<void(const cue_point_t&)> callback);
+		void cue_point_callback_remove(int id);
 		auto operator<=>(const timeline_cue &other) const;
 	};
 
-	struct timeline_group : core::ID<timeline_group>, hierarchy::hierarchy_feature
+	template<hierarchy::hierarchy_feature::callback_mode mode>
+	int timeline_cue::cue_point_callback_add(const std::function<void(const cue_point_t &)> callback)
 	{
+		return cue_point_.callback_add<mode>(callback);
+	}
+
+	class timeline_group : public core::ID<timeline_group>, hierarchy::hierarchy_feature
+	{
+	public:
 		using press_duration_t = timeline_cue::cue_point_t;
-		chain<int8_t> button_x{this, 0};
-		chain<int8_t> button_y{this, 0};
-		press_duration_t press_duration {std::chrono::microseconds(100)};
-		std::shared_ptr<audio_segment> segment;
-		std::shared_ptr<timeline_cue> start_cue;
-		// std::shared_ptr<lightshow::rgbav_sequence_grid> rgbav_grid;
-		std::shared_ptr<lightshow::lightshow_data> lightshow_data;
+	private:
+		chain<int8_t> button_x_{this, 0};
+		chain<int8_t> button_y_{this, 0};
+		press_duration_t press_duration_ {std::chrono::microseconds(100)};
+		std::shared_ptr<audio_segment> segment_;
+		std::shared_ptr<timeline_cue> start_cue_;
+		// std::shared_ptr<lightshow::rgbav_sequence_grid> rgbav_grid_;
+		std::shared_ptr<lightshow::lightshow_data> lightshow_data_;
+	public:
+		[[nodiscard]] int8_t button_x_get() const;
+		void button_x_set(int8_t x);
+		template<callback_mode mode>
+		[[nodiscard]] int button_x_callback_add(std::function<void(const int8_t&)> callback);
+		void button_x_callback_remove(int id);
+		[[nodiscard]] int8_t button_y_get() const;
+		void button_y_set(int8_t y);
+		template<callback_mode mode>
+		[[nodiscard]] int button_y_callback_add(std::function<void(const int8_t&)> callback);
+		void button_y_callback_remove(int id);
+		[[nodiscard]] press_duration_t press_duration_get() const;
+		void press_duration_set(press_duration_t press_duration);
+		[[nodiscard]] std::shared_ptr<audio_segment> segment_get() const;
+		void segment_set(const std::shared_ptr<audio_segment>& segment);
+		[[nodiscard]] std::shared_ptr<timeline_cue> start_cue_get() const;
+		void start_cue_set(const std::shared_ptr<timeline_cue>& start_cue);
+		// [[nodiscard]] std::shared_ptr<lightshow::rgbav_sequence_grid> rgbav_grid_get() const;
+		// void rgbav_grid_set(const std::shared_ptr<lightshow::rgbav_sequence_grid>& rgbav_grid);
+		[[nodiscard]] std::shared_ptr<lightshow::lightshow_data> lightshow_data_get() const;
+		void lightshow_data_set(const std::shared_ptr<lightshow::lightshow_data>& lightshow_data);
 	};
+
+	template<hierarchy::hierarchy_feature::callback_mode mode>
+	int timeline_group::button_x_callback_add(const std::function<void(const int8_t &)> callback)
+	{
+		return button_x_.callback_add<mode>(callback);
+	}
+
+	template<hierarchy::hierarchy_feature::callback_mode mode>
+	int timeline_group::button_y_callback_add(const std::function<void(const int8_t &)> callback)
+	{
+		return button_y_.callback_add<mode>(callback);
+	}
 
 	class timeline : public core::ID<timeline>//, public hierarchy::hierarchy_feature
 	{
@@ -117,10 +163,11 @@ namespace uniq::project
 		// [[nodiscard]] const std::set<std::shared_ptr<timeline_group>, timeline_group_compare_start_cue>& group_set_get() const;
 	};
 
-	struct timeline_page : core::ID<timeline_page>
+	class timeline_page : public core::ID<timeline_page>
 	{
 		using cue_point_t = timeline_cue::cue_point_t;
-		std::shared_ptr<timeline_cue> start_cue;
+		std::shared_ptr<timeline_cue> start_cue_;
+	public:
 		struct xy
 		{
 			int8_t x = 0;
@@ -139,6 +186,8 @@ namespace uniq::project
 		};
 		std::map<xy, std::shared_ptr<timeline_page>> next_page_map;
 		explicit timeline_page(cue_point_t cue);
+		void start_cue_set(const std::shared_ptr<timeline_cue>& start_cue);
+		[[nodiscard]] std::shared_ptr<timeline_cue> start_cue_get() const;
 		bool next_page_set(const std::shared_ptr<timeline_page>& timeline_page, xy xy);
 		auto next_page_get(xy xy) -> std::shared_ptr<timeline_page>;
 		bool next_page_remove(xy xy);

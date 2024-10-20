@@ -14,18 +14,146 @@ namespace uniq::project
 	{
 		// if (const auto cmp = start_cue.get() <=> other.start_cue.get(); cmp != 0) return cmp;
 		// return ID_get() <=> other.ID_get();
-		return cue_point.get() <=> other.cue_point.get();
+		return cue_point_.get() <=> other.cue_point_.get();
 	}
 
-	timeline_cue::timeline_cue(cue_point_t cue_point): cue_point(this, cue_point)
+	timeline_cue::timeline_cue(const cue_point_t cue_point)
 	{
+		cue_point_set(cue_point);
+	}
+
+	void timeline_cue::cue_point_set(const cue_point_t cue_point)
+	{
+		cue_point_.set(cue_point);
+		struct s
+		{
+			cue_point_t::rep cue_point;
+			explicit s(const cue_point_t &cue_point) : cue_point(cue_point.count()) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(cue_point));
+	}
+
+	timeline_cue::cue_point_t timeline_cue::cue_point_get() const
+	{
+		return cue_point_.get();
+	}
+
+	void timeline_cue::cue_point_callback_remove(const int id)
+	{
+		cue_point_.callback_remove(id);
+	}
+
+	int8_t timeline_group::button_x_get() const
+	{
+		return button_x_.get();
+	}
+
+	void timeline_group::button_x_set(const int8_t x)
+	{
+		button_x_.set(x);
+		struct s
+		{
+			int8_t x;
+			explicit s(const int8_t x) : x(x) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(x));
+	}
+
+	void timeline_group::button_x_callback_remove(const int id)
+	{
+		button_x_.callback_remove(id);
+	}
+
+	int8_t timeline_group::button_y_get() const
+	{
+		return button_y_.get();
+	}
+
+	void timeline_group::button_y_set(int8_t y)
+	{
+		button_y_.set(y);
+		struct s
+		{
+			int8_t y;
+			explicit s(const int8_t y) : y(y) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(y));
+	}
+
+	void timeline_group::button_y_callback_remove(int id)
+	{
+		button_y_.callback_remove(id);
+	}
+
+	timeline_group::press_duration_t timeline_group::press_duration_get() const
+	{
+		return press_duration_;
+	}
+
+	void timeline_group::press_duration_set(press_duration_t press_duration)
+	{
+		press_duration_ = press_duration;
+		struct s
+		{
+			press_duration_t::rep press_duration;
+			explicit s(const press_duration_t press_duration) : press_duration(press_duration.count()) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(press_duration));
+	}
+
+	std::shared_ptr<audio_segment> timeline_group::segment_get() const
+	{
+		return segment_;
+	}
+
+	void timeline_group::segment_set(const std::shared_ptr<audio_segment> &segment)
+	{
+		segment_ = segment;
+		struct s
+		{
+			id_t segment_id;
+			explicit s(const std::shared_ptr<audio_segment> &segment) : segment_id(segment->ID_get()) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(segment));
+	}
+
+	std::shared_ptr<timeline_cue> timeline_group::start_cue_get() const
+	{
+		return start_cue_;
+	}
+
+	void timeline_group::start_cue_set(const std::shared_ptr<timeline_cue> &start_cue)
+	{
+		start_cue_ = start_cue;
+		struct s
+		{
+			id_t start_cue_id;
+			explicit s(const std::shared_ptr<timeline_cue> &start_cue) : start_cue_id(start_cue->ID_get()) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(start_cue));
+	}
+
+	std::shared_ptr<lightshow::lightshow_data> timeline_group::lightshow_data_get() const
+	{
+		return lightshow_data_;
+	}
+
+	void timeline_group::lightshow_data_set(const std::shared_ptr<lightshow::lightshow_data> &lightshow_data)
+	{
+		lightshow_data_ = lightshow_data;
+		struct s
+		{
+			id_t lightshow_data_id;
+			explicit s(const std::shared_ptr<lightshow::lightshow_data> &lightshow_data) : lightshow_data_id(lightshow_data->ID_get()) {}
+		};
+		core::api::callback_manager.RAC(ID_get(), new s(lightshow_data));
 	}
 
 	bool timeline::timeline_group_compare_start_cue::operator()(const std::shared_ptr<timeline_group> &lhs,
-																const std::shared_ptr<timeline_group> &rhs) const
+	                                                            const std::shared_ptr<timeline_group> &rhs) const
 	{
-		const auto &lhs_start_cue = lhs->start_cue->cue_point.get();
-		const auto &rhs_start_cue = rhs->start_cue->cue_point.get();
+		const auto &lhs_start_cue = lhs->start_cue_get()->cue_point_get();
+		const auto &rhs_start_cue = rhs->start_cue_get()->cue_point_get();
 		if (lhs_start_cue != rhs_start_cue) return lhs_start_cue < rhs_start_cue;
 		return lhs < rhs;
 	}
@@ -33,19 +161,19 @@ namespace uniq::project
 	bool timeline::timeline_group_compare_start_cue::operator()(const std::shared_ptr<timeline_group> &lhs,
 		const cue_point_t &rhs) const
 	{
-		return lhs->start_cue->cue_point.get() < rhs;
+		return lhs->start_cue_get()->cue_point_get() < rhs;
 	}
 
 	bool timeline::timeline_group_compare_start_cue::operator()(const cue_point_t &lhs,
 		const std::shared_ptr<timeline_group> &rhs) const
 	{
-		return lhs < rhs->start_cue->cue_point.get();
+		return lhs < rhs->start_cue_get()->cue_point_get();
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
 	                                                      const std::shared_ptr<group_callback> &rhs) const
 	{
-		if (const auto cmp = *lhs->group->start_cue->cue_point <=> *rhs->group->start_cue->cue_point; cmp != 0)
+		if (const auto cmp = lhs->group->start_cue_get()->cue_point_get() <=> rhs->group->start_cue_get()->cue_point_get(); cmp != 0)
 			return cmp < 0;
 		return lhs->group->ID_get() < rhs->group->ID_get();
 	}
@@ -53,25 +181,25 @@ namespace uniq::project
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
 		const std::shared_ptr<timeline_group> &rhs) const
 	{
-		return *lhs->group->start_cue->cue_point < *rhs->start_cue->cue_point;
+		return lhs->group->start_cue_get()->cue_point_get() < rhs->start_cue_get()->cue_point_get();
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<timeline_group> &lhs,
 		const std::shared_ptr<group_callback> &rhs) const
 	{
-		return *lhs->start_cue->cue_point < *rhs->group->start_cue->cue_point;
+		return lhs->start_cue_get()->cue_point_get() < rhs->group->start_cue_get()->cue_point_get();
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
 		const cue_point_t &rhs) const
 	{
-		return *lhs->group->start_cue->cue_point < rhs;
+		return lhs->group->start_cue_get()->cue_point_get() < rhs;
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const cue_point_t &lhs,
 		const std::shared_ptr<group_callback> &rhs) const
 	{
-		return lhs < *rhs->group->start_cue->cue_point;
+		return lhs < rhs->group->start_cue_get()->cue_point_get();
 	}
 
 	timeline::timeline(std::string name) : name_(std::move(name))
@@ -114,8 +242,8 @@ namespace uniq::project
 		group_callback_->group = group;
 		const auto& button_change_before_callback = [&](const auto&)
 		{
-			const auto& x = group->button_x.get();
-			const auto& y = group->button_y.get();
+			const auto& x = group->button_x_get();
+			const auto& y = group->button_y_get();
 			if (key_group_grid_[x][y].erase(group) == 0)
 			{
 				log::error("key_group_list에 group이 존재하지 않습니다: 논리적 오류");
@@ -123,37 +251,37 @@ namespace uniq::project
 		};
 		const auto& button_change_after_callback = [&](const auto&)
 		{
-			const auto& x = group->button_x.get();
-			const auto& y = group->button_y.get();
+			const auto& x = group->button_x_get();
+			const auto& y = group->button_y_get();
 			key_group_grid_[x][y].insert(group);
 		};
-		auto& button_x = group->button_x;
+		// auto& button_x = group->button_x;
 		auto& button_x_callback_id_list = group_callback_->button_x_callback_id_list;
 		// button_x_callback_id_list.reserve(button_x_callback_id_list.size() + 2);
-		button_x_callback_id_list.push_back(button_x.callback_add<callback_mode::change_before>(
+		button_x_callback_id_list.push_back(group->button_x_callback_add<callback_mode::change_before>(
 			button_change_before_callback
 		));
-		button_x_callback_id_list.push_back(button_x.callback_add<callback_mode::change_after>(
+		button_x_callback_id_list.push_back(group->button_x_callback_add<callback_mode::change_after>(
 			button_change_after_callback
 		));
-		auto& button_y = group->button_y;
+		// auto& button_y = group->button_y;
 		auto& button_y_callback_id_list = group_callback_->button_y_callback_id_list;
 		// button_y_callback_id_list.reserve(button_y_callback_id_list.size() + 2);
-		button_y_callback_id_list.push_back(button_y.callback_add<callback_mode::change_before>(
+		button_y_callback_id_list.push_back(group->button_y_callback_add<callback_mode::change_before>(
 			button_change_before_callback
 		));
-		button_y_callback_id_list.push_back(button_y.callback_add<callback_mode::change_after>(
+		button_y_callback_id_list.push_back(group->button_y_callback_add<callback_mode::change_after>(
 			button_change_after_callback
 		));
-		if (!group->start_cue)
+		if (!group->start_cue_get())
 		{
 			log::error("그룹의 start_cue가 존재하지 않습니다.");
 			return false;
 		}
-		auto& cue = group->start_cue->cue_point;
+		const auto& cue = group->start_cue_get();
 		auto& start_cue_callback_id_list = group_callback_->start_cue_callback_id_list;
 		// start_cue_callback_id_list.reserve(start_cue_callback_id_list.size() + 2);
-		start_cue_callback_id_list.push_back(cue.callback_add<callback_mode::change_before>(
+		start_cue_callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::change_before>(
 			[&](const auto&)
 			{
 				button_change_before_callback(0);
@@ -163,7 +291,7 @@ namespace uniq::project
 				}
 			}
 		));
-		start_cue_callback_id_list.push_back(cue.callback_add<callback_mode::change_after>(
+		start_cue_callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::change_after>(
 			[&](const auto&)
 			{
 				button_change_after_callback(0);
@@ -171,8 +299,8 @@ namespace uniq::project
 			}
 		));
 		group_callback_set_.insert(group_callback_);
-		const auto& x = group->button_x.get();
-		const auto& y = group->button_y.get();
+		const auto& x = group->button_x_get();
+		const auto& y = group->button_y_get();
 		key_group_grid_[x][y].insert(group);
 		core::api::callback_manager.RAC(ID_get(), group->ID_get());
 		return true;
@@ -187,23 +315,23 @@ namespace uniq::project
 			return false;
 		}
 		const auto& target = *it;
-		const auto& x = target->group->button_x.get();
-		const auto& y = target->group->button_y.get();
+		const auto& x = target->group->button_x_get();
+		const auto& y = target->group->button_y_get();
 		if (key_group_grid_[x][y].erase(target->group) == 0)
 		{
 			log::error("key_group_list에 group이 존재하지 않습니다: 논리적 오류");
 		}
 		for (const auto& id : target->button_x_callback_id_list)
 		{
-			group->button_x.callback_remove(id);
+			group->button_x_callback_remove(id);
 		}
 		for (const auto& id : target->button_y_callback_id_list)
 		{
-			group->button_y.callback_remove(id);
+			group->button_y_callback_remove(id);
 		}
 		for (const auto& id : target->start_cue_callback_id_list)
 		{
-			group->start_cue->cue_point.callback_remove(id);
+			group->start_cue_get()->cue_point_callback_remove(id);
 		}
 		group_callback_set_.erase(it);
 		core::api::callback_manager.RAC(ID_get(), group->ID_get());
@@ -262,22 +390,32 @@ namespace uniq::project
 	bool timeline_page::set_compare::operator()(const std::shared_ptr<timeline_page> &lhs,
 	                                            const std::shared_ptr<timeline_page> &rhs) const
 	{
-		if (const auto cmp = *lhs->start_cue <=> *rhs->start_cue; cmp != 0) return cmp < 0;
+		if (const auto cmp = *lhs->start_cue_get() <=> *rhs->start_cue_get(); cmp != 0) return cmp < 0;
 		return lhs->ID_get() < rhs->ID_get();
 	}
 
 	bool timeline_page::set_compare::operator()(const std::shared_ptr<timeline_page> &lhs, const cue_point_t &rhs) const
 	{
-		return *lhs->start_cue->cue_point < rhs;
+		return lhs->start_cue_get()->cue_point_get() < rhs;
 	}
 
 	bool timeline_page::set_compare::operator()(const cue_point_t &lhs, const std::shared_ptr<timeline_page> &rhs) const
 	{
-		return lhs < *rhs->start_cue->cue_point;
+		return lhs < rhs->start_cue_get()->cue_point_get();
 	}
 
-	timeline_page::timeline_page(const cue_point_t cue) : start_cue(timeline_cue::create(cue))
+	timeline_page::timeline_page(const cue_point_t cue) : start_cue_(timeline_cue::create(cue))
 	{
+	}
+
+	void timeline_page::start_cue_set(const std::shared_ptr<timeline_cue> &start_cue)
+	{
+		start_cue_ = start_cue;
+	}
+
+	std::shared_ptr<timeline_cue> timeline_page::start_cue_get() const
+	{
+		return start_cue_;
 	}
 
 	bool timeline_page::next_page_set(const std::shared_ptr<timeline_page>& timeline_page, const xy xy)
@@ -298,7 +436,7 @@ namespace uniq::project
 	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
 	                                        const std::shared_ptr<page_callback> &rhs) const
 	{
-		if (const auto cmp = *lhs->page->start_cue->cue_point <=> *rhs->page->start_cue->cue_point; cmp != 0)
+		if (const auto cmp = lhs->page->start_cue_get()->cue_point_get() <=> rhs->page->start_cue_get()->cue_point_get(); cmp != 0)
 			return cmp < 0;
 		return lhs->page->ID_get() < rhs->page->ID_get();
 	}
@@ -306,23 +444,23 @@ namespace uniq::project
 	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs,
 		const std::shared_ptr<timeline_page> &rhs) const
 	{
-		return *lhs->page->start_cue->cue_point < *rhs->start_cue->cue_point;
+		return lhs->page->start_cue_get()->cue_point_get() < rhs->start_cue_get()->cue_point_get();
 	}
 
 	bool project::page_set_compare::operator()(const std::shared_ptr<timeline_page> &lhs,
 		const std::shared_ptr<page_callback> &rhs) const
 	{
-		return *lhs->start_cue->cue_point < *rhs->page->start_cue->cue_point;
+		return lhs->start_cue_get()->cue_point_get() < rhs->page->start_cue_get()->cue_point_get();
 	}
 
 	bool project::page_set_compare::operator()(const std::shared_ptr<page_callback> &lhs, const cue_point_t &rhs) const
 	{
-		return *lhs->page->start_cue->cue_point < rhs;
+		return lhs->page->start_cue_get()->cue_point_get() < rhs;
 	}
 
 	bool project::page_set_compare::operator()(const cue_point_t &lhs, const std::shared_ptr<page_callback> &rhs) const
 	{
-		return lhs < *rhs->page->start_cue->cue_point;
+		return lhs < rhs->page->start_cue_get()->cue_point_get();
 	}
 
 	project::guide_timer::guide_timer(project *uniq)
@@ -355,8 +493,8 @@ namespace uniq::project
 			while (!guide_group_deque_.empty())
 			{
 				auto guide_group = guide_group_deque_.front();
-				auto x = guide_group.group->button_x.get();
-				auto y = guide_group.group->button_y.get();
+				auto x = guide_group.group->button_x_get();
+				auto y = guide_group.group->button_y_get();
 				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
 				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				guide_group_deque_.pop_front();
@@ -373,7 +511,7 @@ namespace uniq::project
 			auto it = group_callback_set.lower_bound(guide_cue_);
 			if (it == group_callback_set.end()) continue;
 			const auto& group = (*it)->group;
-			auto cue = group->start_cue->cue_point.get();
+			auto cue = group->start_cue_get()->cue_point_get();
 			if (cue < guide_target_cue)
 			{
 				guide_target_group = group;
@@ -442,13 +580,13 @@ namespace uniq::project
 		while (!guide_group_deque_.empty())
 		{
 			auto guide_group = guide_group_deque_.front();
-			if (guide_group.group->start_cue->cue_point.get() < guide_target_cue || guide_group.is_played)
+			if (guide_group.group->start_cue_get()->cue_point_get() < guide_target_cue || guide_group.is_played)
 			{
 				if (!guide_group.is_played && play_audio_flag)
 				{
 					//임시
-					const auto x = guide_group.group->button_x.get();
-					const auto y = guide_group.group->button_y.get();
+					const auto x = guide_group.group->button_x_get();
+					const auto y = guide_group.group->button_y_get();
 					audio_play(timeline_list_[0], guide_group.group);
 					guide_start_first_flag_ = false;
 					if (launchpad_)
@@ -456,7 +594,7 @@ namespace uniq::project
 						auto lightshow = launchpad_->lightshow_get();
 						if (lightshow)
 						{
-							lightshow->lightshow_data_set(guide_group.group->lightshow_data, x, y);
+							lightshow->lightshow_data_set(guide_group.group->lightshow_data_get(), x, y);
 						}
 					}
 					timeline_list_[0]->last_play_group_set(x, y, guide_group.group);
@@ -468,8 +606,8 @@ namespace uniq::project
 					// log::info("play: " + guide_group.group->segment->source_.lock()->internal.data_get()->name_);
 				}
 				guide_group_deque_.pop_front();
-				auto x = guide_group.group->button_x.get();
-				auto y = guide_group.group->button_y.get();
+				auto x = guide_group.group->button_x_get();
+				auto y = guide_group.group->button_y_get();
 				// launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
 				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
@@ -480,11 +618,11 @@ namespace uniq::project
 		while (!guide_group_deque_.empty())
 		{
 			auto guide_group = guide_group_deque_.back();
-			if (guide_target_cue + guide_simul_ < guide_group.group->start_cue->cue_point.get())
+			if (guide_target_cue + guide_simul_ < guide_group.group->start_cue_get()->cue_point_get())
 			{
 				guide_group_deque_.pop_back();
-				auto x = guide_group.group->button_x.get();
-				auto y = guide_group.group->button_y.get();
+				auto x = guide_group.group->button_x_get();
+				auto y = guide_group.group->button_y_get();
 				//launchpad_->rgb_set(x, y, 0x00, 0x00, 0x00);
 				if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, lightshow::rgbav());
 				continue;
@@ -495,8 +633,8 @@ namespace uniq::project
 		// 가이드 표시
 		for (const auto& guide_group : guide_group_deque_)
 		{
-			auto x = guide_group.group->button_x.get();
-			auto y = guide_group.group->button_y.get();
+			auto x = guide_group.group->button_x_get();
+			auto y = guide_group.group->button_y_get();
 			// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
 			if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 		}
@@ -507,20 +645,20 @@ namespace uniq::project
 			auto it_start = group_callback_set.lower_bound(guide_target_cue);
 			auto max_cue = guide_target_cue + guide_simul_;
 			auto min_cue = guide_group_deque_.empty()
-				? timeline::cue_point_t::min() : guide_group_deque_.back().group->start_cue->cue_point.get();
+				? timeline::cue_point_t::min() : guide_group_deque_.back().group->start_cue_get()->cue_point_get();
 			while (it_start != group_callback_set.end())
 			{
-				auto cue = (*it_start)->group->start_cue->cue_point.get();
+				auto cue = (*it_start)->group->start_cue_get()->cue_point_get();
 				if (max_cue < cue) break;
 				if (min_cue < cue)
 				{
 					auto& group_callback = *it_start;
 					auto& group = group_callback->group;
-					log::info("group.cue: " + to_string(group->start_cue->cue_point.get().count()));
+					log::info("group.cue: " + to_string(group->start_cue_get()->cue_point_get().count()));
 					// guide_group_deque_.emplace_back(group, false);
 					guide_group_deque_.push_back({group, false});
-					auto x = group->button_x.get();
-					auto y = group->button_y.get();
+					auto x = group->button_x_get();
+					auto y = group->button_y_get();
 					// launchpad_->rgb_set(x, y, guide_color_.r, guide_color_.g, guide_color_.b);
 					if (launchpad_) launchpad_->lightshow_get()->guide_color_set(x, y, guide_color_);
 				}
@@ -591,8 +729,8 @@ namespace uniq::project
 				shared_ptr<timeline_group> target_group;
 				for (auto& guide_group : guide_group_deque_)
 				{
-					auto guide_group_x = guide_group.group->button_x.get();
-					auto guide_group_y = guide_group.group->button_y.get();
+					auto guide_group_x = guide_group.group->button_x_get();
+					auto guide_group_y = guide_group.group->button_y_get();
 					if (guide_group_x == x && guide_group_y == y && !guide_group.is_played)
 					{
 						guide_group.is_played = true;
@@ -602,7 +740,7 @@ namespace uniq::project
 				}
 				if (target_group)
 				{
-					// guide_cue_ = target_group->start_cue->cue_point.get();
+					// guide_cue_ = target_group->start_cue_get()->cue_point_get();
 					//TODO: 가이드 누름 처리
 					bool cue_update = false;
 					{
@@ -630,10 +768,10 @@ namespace uniq::project
 						for (const auto& timeline_ : timeline_list_)
 						{
 							auto& group_callback_set = timeline_->internal.group_callback_set_get();
-							auto it = group_callback_set.upper_bound(guide_group_deque_.front().group->start_cue->cue_point.get());
+							auto it = group_callback_set.upper_bound(guide_group_deque_.front().group->start_cue_get()->cue_point_get());
 							if (it == group_callback_set.end()) continue;
 							const auto& group = (*it)->group;
-							auto cue = group->start_cue->cue_point.get();
+							auto cue = group->start_cue_get()->cue_point_get();
 							if (cue < guide_next_cue)
 							{
 								guide_next_cue = cue;
@@ -717,24 +855,25 @@ namespace uniq::project
 	{
 		constexpr timeline::cue_point_t start_duration = -200ms;
 		constexpr timeline::cue_point_t end_duration = 50ms;
-		const auto target_group_start_cue = target_group->start_cue->cue_point.get();
+		const auto target_group_start_cue = target_group->start_cue_get()->cue_point_get();
 		const auto& group_callback_set = target_timeline->internal.group_callback_set_get();
 		// log::info("target_group->segment->ID_get(): " + to_string(target_group->segment->ID_get()));
-		// log::info("target_group->start_cue->cue_point.get(): " + to_string(target_group->start_cue->cue_point.get().count()));
+		// log::info("target_group->start_cue_get()->cue_point_get(): " + to_string(target_group->start_cue_get()->cue_point_get().count()));
 		//TODO: 효율적인 sync_target_add 구현
+		const auto& target_group_segment = target_group->segment_get();
 		for (auto &group_callback : group_callback_set)
 		{
 			if (group_callback->group == target_group) continue;
 			const auto& group = group_callback->group;
-			const auto group_end_cue = group->start_cue->cue_point.get() + group->segment->cue_length_get();
+			const auto group_end_cue = group->start_cue_get()->cue_point_get() + group->segment_get()->cue_length_get();
 			// if (group_end_cue < target_group_start_cue + start_duration) continue;
-			// if (target_group_start_cue + end_duration < group->start_cue->cue_point.get()) break;
+			// if (target_group_start_cue + end_duration < group->start_cue_get()->cue_point_get()) break;
 			if (group_end_cue + end_duration < target_group_start_cue) continue;
 			if (target_group_start_cue < group_end_cue + start_duration) continue;
-			target_group->segment->sync_target_add(group_callback->group->segment->ID_get());
+			target_group_segment->sync_target_add(group_callback->group->segment_get()->ID_get());
 			// log::info("sync_target_add: " + group->segment->source_.lock()->internal.data_get()->name_);
 			// log::info("group->segment->ID_get(): " + to_string(group->segment->ID_get()));
-			// log::info("group->start_cue->cue_point.get(): " + to_string(group->start_cue->cue_point.get().count()));
+			// log::info("group->start_cue_get()->cue_point_get(): " + to_string(group->start_cue_get()->cue_point_get().count()));
 
 		}
 		// fade out
@@ -745,9 +884,9 @@ namespace uniq::project
 			// target_group->segment->fade_out_target_add(next_group->segment->ID_get());
 			// target_group->segment->fade_out_end_time_set(200ms);
 		}
-		target_group->segment->sync_duration_set(start_duration, end_duration);
-		target_group->segment->time_hint_set(target_group_start_cue);
-		target_group->segment->play(player_);
+		target_group_segment->sync_duration_set(start_duration, end_duration);
+		target_group_segment->time_hint_set(target_group_start_cue);
+		target_group_segment->play(player_);
 	}
 
 	project::project()
@@ -897,10 +1036,10 @@ namespace uniq::project
 		using callback_mode = hierarchy::hierarchy_feature::callback_mode;
 		auto page_callback_ = make_shared<page_callback>();
 		page_callback_->page = page;
-		auto& cue = page->start_cue->cue_point;
+		const auto& cue = page->start_cue_get();
 		auto& callback_id_list = page_callback_->callback_id_list;
 		callback_id_list.reserve(3);
-		callback_id_list.push_back(cue.callback_add<callback_mode::remove_before>(
+		callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::remove_before>(
 			[this, page_callback_](const auto&)
 			{
 				if (page_set_.erase(page_callback_) == 0)
@@ -909,13 +1048,13 @@ namespace uniq::project
 				}
 			}
 		));
-		callback_id_list.push_back(cue.callback_add<callback_mode::change_after>(
+		callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::change_after>(
 			[this, page_callback_](const auto&)
 			{
 				page_set_.insert(page_callback_);
 			}
 		));
-		callback_id_list.push_back(cue.callback_add<callback_mode::try_remove>(
+		callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::try_remove>(
 			[this, page_callback_](const auto&)
 			{
 				page_set_.erase(page_callback_);
@@ -1120,10 +1259,10 @@ namespace uniq::project
 		auto target_group = shared_ptr<timeline_group>();
 		auto next_page_check_flag = true;
 		auto cue_max = timeline::cue_point_t::max();
-		auto current_page_cue = current_page_->start_cue->cue_point.get();
+		auto current_page_cue = current_page_->start_cue_get()->cue_point_get();
 		auto next_page_iter = page_set_.upper_bound<timeline::cue_point_t>(current_page_cue);
 		auto next_page_cue = next_page_iter == page_set_.end() ?
-			timeline::cue_point_t::max() : (*next_page_iter)->page->start_cue->cue_point.get();
+			timeline::cue_point_t::max() : (*next_page_iter)->page->start_cue_get()->cue_point_get();
 		for(auto i = 0; i < timeline_list_.size(); i++)
 		{
 			const auto& timeline_ = timeline_list_[i];
@@ -1141,13 +1280,13 @@ namespace uniq::project
 			else
 			{
 				group_next_iter = next(key_group.find(last_play_group));
-				if (group_next_iter == key_group.end() || next_page_cue <= (*group_next_iter)->start_cue->cue_point.get())
+				if (group_next_iter == key_group.end() || next_page_cue <= (*group_next_iter)->start_cue_get()->cue_point_get())
 				{ // 마지막 재생 그룹이 다음 페이지로 넘어가는 경우
 					group_next_iter = group_start_iter;
 					next_page_flag = true;
 				}
 			}
-			if (auto cue = (*group_next_iter)->start_cue->cue_point.get(); cue < cue_max)
+			if (auto cue = (*group_next_iter)->start_cue_get()->cue_point_get(); cue < cue_max)
 			{
 				target_timeline_index = i;
 				target_group = *group_next_iter;
@@ -1186,7 +1325,7 @@ namespace uniq::project
 			auto lightshow = launchpad_->lightshow_get();
 			if (lightshow)
 			{
-				lightshow->lightshow_data_set(target_group->lightshow_data, x, y);
+				lightshow->lightshow_data_set(target_group->lightshow_data_get(), x, y);
 			}
 		}
 		target_timeline->last_play_group_set(x, y, target_group);
