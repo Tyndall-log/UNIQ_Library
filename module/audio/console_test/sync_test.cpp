@@ -26,7 +26,7 @@ int sync_test1()
 			cout << i << "번째 cue_add 실패" << endl;
 			continue;
 		}
-		auto s = as->segment_create(44100 * i - 1);
+		auto s = as->segment_create(44100 * i - 1, TODO);
 		if (!s)
 		{
 			cout << i << "번째 segment_create 실패" << endl;
@@ -34,7 +34,7 @@ int sync_test1()
 		}
 		segment_list.push_back(s);
 	}
-	auto last_s = as->segment_create(44100 * max_num - 1);
+	auto last_s = as->segment_create(44100 * max_num - 1, TODO);
 	// cin >> a;
 
 	for(const auto &s : segment_list)
@@ -68,7 +68,7 @@ int sync_test2()
 	for (int i = 1; i <= max_num; i++)
 	{
 		as->cue_add(offset + split * i);
-		auto s = as->segment_create(offset + split * i - 1);
+		auto s = as->segment_create(offset + split * i - 1, TODO);
 		if (!s)
 		{
 			cout << i << "번째 segment_create 실패" << endl;
@@ -82,7 +82,7 @@ int sync_test2()
 		cout << "segment id: " << s->ID_get() << endl;
 		segment_list.push_back(s);
 	}
-	auto last_s = as->segment_create(offset + split * max_num + 1);
+	auto last_s = as->segment_create(offset + split * max_num + 1, TODO);
 
 	for(const auto &s : segment_list)
 	{
@@ -118,7 +118,7 @@ int sync_test3()
 	{
 		ii += i;
 		as->cue_add(offset + split * i);
-		auto s = as->segment_create(offset + split * i - 1);
+		auto s = as->segment_create(offset + split * i - 1, TODO);
 		if (!s)
 		{
 			cout << i << "번째 segment_create 실패" << endl;
@@ -136,7 +136,7 @@ int sync_test3()
 		cout << "segment id: " << s->ID_get() << endl;
 		segment_list.push_back(s);
 	}
-	auto last_s = as->segment_create(offset + split * max_num + 1);
+	auto last_s = as->segment_create(offset + split * max_num + 1, TODO);
 
 	for(const auto &s : segment_list)
 	{

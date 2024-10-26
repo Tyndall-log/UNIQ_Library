@@ -24,6 +24,79 @@ namespace uniq::internal
 
 #pragma region audio_data
 
+	void audio_data::waveform_create()
+	{
+		unique_lock lock(mutex_);
+		const auto& buffer = buffer_;
+		const auto& channel_num = buffer.getNumChannels();
+		const auto& sample_num = buffer.getNumSamples();
+		if (channel_num < 1 || sample_num < 1)
+		{
+			log::error("audio_data::waveform_create: channel_num < 1 || sample_num < 1");
+			return;
+		}
+		waveform_ = new float**[channel_num];
+		waveform_size_ = new int*[channel_num];
+		for (int c = 0; c < channel_num; ++c)
+		{
+			const auto& channel_data = buffer.getReadPointer(c);
+			const auto& level_size = bit_width(static_cast<uint>(sample_num - 1));
+			const auto& waveform_level = waveform_[c] = new float*[level_size];
+			const auto& waveform_size_level = waveform_size_[c] = new int[level_size];
+			auto waveform_size = waveform_size_level[0] = (sample_num + 1) >> 1;
+			auto waveform = waveform_level[0] = new float[waveform_size];
+			auto i_max = sample_num >> 1;
+			for (int i = 0; i < i_max; ++i)
+			{
+				waveform[i] = std::abs(std::max(channel_data[i * 2], channel_data[i * 2 + 1]));
+			}
+			if (sample_num % 2 == 1)
+			{
+				waveform[i_max] = std::abs(channel_data[sample_num - 1]);
+			}
+			auto prev = waveform;
+			auto prev_size = waveform_size;
+			for (int level = 1; level < level_size; ++level)
+			{
+				waveform_size = waveform_size_level[level] = (prev_size + 1) >> 1;
+				waveform = waveform_level[level] = new float[waveform_size];
+				i_max = prev_size >> 1;
+				for (int i = 0; i < i_max; ++i)
+				{
+					waveform[i] = std::max(prev[i * 2], prev[i * 2 + 1]);
+				}
+				if (prev_size % 2 == 1)
+				{
+					waveform[i_max] = prev[prev_size - 1];
+				}
+				prev_size = waveform_size;
+				prev = waveform;
+			}
+		}
+	}
+
+	audio_data::~audio_data()
+	{
+		if (waveform_)
+		{
+			const auto& channel_num = buffer_.getNumChannels();
+			const auto& sample_num = buffer_.getNumSamples();
+			const auto& level_size = bit_width(static_cast<uint>(sample_num - 1));
+			for (int c = 0; c < channel_num; ++c)
+			{
+				const auto& waveform_level = waveform_[c];
+				for (int level = 0; level < level_size; ++level)
+				{
+					delete[] waveform_level[level];
+				}
+				delete[] waveform_level;
+				delete[] waveform_size_[c];
+			}
+			delete[] waveform_;
+			delete[] waveform_size_;
+		}
+	}
+
 	shared_ptr<audio_data> audio_data::load(const string &path)
 	{
 		const auto format_manager = audio_format_manager::get();
@@ -41,6 +114,7 @@ namespace uniq::internal
 		data->extension_ = File(path).getFileExtension().toStdString();
 		data->path_ = path;
 		data->name_ = File(path).getFileNameWithoutExtension().toStdString();
+		data->waveform_create();
 		return data;
 	}
 
@@ -62,6 +136,7 @@ namespace uniq::internal
 		data->extension_ = extension;
 		data->path_ = path.empty() ? "unknown"s : path;
 		data->name_ = name.empty() ? "unknown"s : name;
+		data->waveform_create();
 		return data;
 	}
 
@@ -1063,19 +1138,33 @@ namespace uniq
 		return custom_source_->add_audio(data, param);
 	}
 
-	audio_cue::audio_cue(const uint64_t cue) : cue_(cue) {}
+	audio_cue::audio_cue(const uint64_t cue) : cue_(cue)
+	{
+		struct s
+		{
+			uint64_t cue;
+			explicit s(const uint64_t cue) : cue(cue) {}
+		};
+		api::callback_manager.RAC(ID_get(), new s(cue));
+	}
 
-	void audio_cue::set(uint64_t cue)
+	void audio_cue::set(const uint64_t cue)
 	{
 		if (cue_ != cue)
 		{
 			call_callback(*this, callback_mode::change_before);
 			cue_ = cue;
 			call_callback(*this, callback_mode::change_after);
+			struct s
+			{
+				uint64_t cue;
+				explicit s(const uint64_t cue) : cue(cue) {}
+			};
+			api::callback_manager.RAC(ID_get(), new s(cue));
 		}
 	}
 
-	bool audio_cue::try_set(uint64_t cue)
+	bool audio_cue::try_set(const uint64_t cue)
 	{
 		auto possible = call_check_callback(*this, callback_check_mode::change_possible);
 		if (!possible)
@@ -1165,6 +1254,14 @@ namespace uniq
 		source->data_ = data;
 		source->cue_point_list_.insert(audio_cue::create(0));
 		source->cue_point_list_.insert(audio_cue::create(data->buffer_.getNumSamples()));
+
+		struct s
+		{
+			uint32_t sample_rate;
+			explicit s(const shared_ptr<uniq::internal::audio_data> &data)
+				: sample_rate(data->sample_rate_) {}
+		};
+		api::callback_manager.RAC(source->ID_get(), new s(data));
 		return source;
 	}
 
@@ -1210,7 +1307,7 @@ namespace uniq
 		return *it;
 	}
 
-	auto audio_source::segment_create(const cue_point_t cue) -> shared_ptr<audio_segment>
+	auto audio_source::segment_create(const cue_point_t cue, const std::string &name) -> shared_ptr<audio_segment>
 	{
 		//데이터 길이 검사
 		auto data = data_;
@@ -1245,15 +1342,153 @@ namespace uniq
 		auto cue_start = *--cue_point_it;
 
 		auto self = ID_manager::get_shared_ptr_o<audio_source>(ID_get()).value();
-		auto segment = audio_segment::create(self, cue_start, cue_end);
+		auto segment = audio_segment::create(self, cue_start, cue_end, name);
 		segment_start_set_.emplace(segment);
 		return segment;
 	}
 
-	audio_segment::audio_segment(const shared_ptr<audio_source> &source,
-	                             const shared_ptr<audio_cue> &start_cue, const shared_ptr<audio_cue> &end_cue)
-		: source_(source), start_cue_(start_cue), end_cue_(end_cue)
+	auto audio_source::sample_rate_get() const -> std::uint32_t
 	{
+		if (data_ == nullptr)
+		{
+			log::error("data is nullptr");
+			return 0;
+		}
+		return data_->sample_rate_;
+	}
+
+	auto audio_source::waveform_get() const -> float***
+	{
+		if (data_ == nullptr)
+		{
+			log::error("data is nullptr");
+			return nullptr;
+		}
+		return data_->waveform_;
+	}
+
+	auto audio_source::waveform_get(const std::int64_t start_cue, const std::int64_t end_cue, const std::uint64_t window_size,
+	                                const std::uint8_t channel) const -> float *
+	{
+		//TODO: start_cue와 end_cue에서 정밀하게 waveform을 추출해야 함
+		// log::info("audio_source::waveform_get: window_size: " + to_string(window_size));
+
+		shared_lock lock(data_->mutex_);
+		// 입력 값 검증
+		const auto& buffer_channel_num = data_->buffer_.getNumChannels();
+		const auto& buffer_sample_num = data_->buffer_.getNumSamples();
+		if (buffer_channel_num <= channel)
+		{
+			log::error("채널 번호가 데이터의 채널 수를 초과했습니다.");
+			return nullptr;
+		}
+
+		// 반환할 파형 배열 할당: [size]
+		auto result_waveform = new float[window_size + 1];
+
+		// 구간 길이와 압축 비율 계산
+		const std::uint64_t cue_range = end_cue - start_cue;
+		const double ratio = static_cast<double>(cue_range) / static_cast<double>(window_size);
+		const double ratio_inv = 1.0 / ratio;
+
+	    // 미리 압축된 파형 사용 여부 결정
+	    if (ratio < 2.0)
+	    {
+	        // 원본 데이터에서 직접 압축
+	        const float* channel_data = data_->buffer_.getReadPointer(channel);
+	        const auto start_pos = static_cast<double>(start_cue);
+	    	const auto end_cue_pos = static_cast<double>(end_cue);
+	    	const double end_sample_pos = buffer_sample_num;
+	    	const double end_pos = min(end_cue_pos, end_sample_pos);
+	    	double pos = start_pos; //pos는 channel_data에서의 실수 위치
+	    	uint64_t idx = 0;
+
+	    	// 음수 구간 0으로 채움
+	    	while (pos < 0)
+	    	{
+	    		result_waveform[idx++] = 0.f;
+	    		pos += ratio;
+	    	}
+	    	// 압축된 파형 생성
+	    	while (pos < end_pos)
+	    	{
+	    		result_waveform[idx++] = std::abs(channel_data[static_cast<uint64_t>(pos)]);
+	    		pos += ratio;
+	    	}
+	    	// 끝 부분 0으로 채움
+	    	while (idx < window_size)
+	    	{
+	    		result_waveform[idx++] = 0.f;
+	    	}
+	    }
+	    else
+	    {
+			// 미리 압축된 레벨 중 가장 적합한 레벨을 선택(level 0은 2배 압축)
+			const auto& max_level = bit_width(static_cast<uint32_t>(buffer_sample_num - 1));
+			auto target_level = bit_width(static_cast<uint64_t>(ratio)) - 2;
+
+			// target_level이 최대 레벨을 넘지 않도록 조정
+			target_level = std::min(target_level, max_level - 1);
+
+			// 미리 압축된 waveform_ 사용
+			const float* compressed_data = data_->waveform_[channel][target_level];
+			const int compressed_data_size = data_->waveform_size_[channel][target_level];
+			const double compression_ratio = ratio / (2 << target_level);
+			const auto start_pos = static_cast<double>(start_cue) / (2 << target_level);
+			const auto end_cue_pos = static_cast<double>(end_cue) / (2 << target_level);
+			const double end_pos = min(static_cast<double>(compressed_data_size), end_cue_pos);
+			double pos = start_pos; //pos는 compressed_data에서의 실수 위치
+			uint64_t idx = 0;
+
+	    	// TODO: idx < window_size 조건을 제거할 수 있는 로직 찾기
+			// 음수 구간 0으로 채움
+				while (pos < 0 && idx < window_size)
+			{
+				result_waveform[idx++] = 0.f;
+				pos += compression_ratio;
+			}
+			// 압축된 파형 생성
+	    	auto prev_pos = static_cast<uint64_t>(pos);
+			// while (idx < window_size) // pos < end_pos
+			while (pos < end_pos)
+			{
+				const auto pos_idx = static_cast<uint64_t>(pos);
+				const auto pos_next_idx = static_cast<uint64_t>(pos + compression_ratio);
+				float max_value = 0;
+				for (std::uint64_t i = pos_idx; i < pos_next_idx && i < end_pos; ++i)
+				{
+					max_value = std::max(max_value, compressed_data[i]);
+				}
+				result_waveform[idx++] = max_value;
+				pos += compression_ratio;
+			}
+			// 끝 부분 0으로 채움
+			while (idx < window_size)
+			{
+				result_waveform[idx++] = 0.f;
+			}
+	    }
+	    return result_waveform;
+	}
+
+	audio_segment::audio_segment(const shared_ptr<audio_source> &source,
+	                             const shared_ptr<audio_cue> &start_cue, const shared_ptr<audio_cue> &end_cue,
+	                             const string &name)
+		: source_(source), start_cue_(start_cue), end_cue_(end_cue), name_(name)
+	{
+		struct s
+		{
+			id_t source_id;
+			id_t start_cue_id;
+			id_t end_cue_id;
+			char* str;
+			explicit s(const shared_ptr<audio_source> &source, const shared_ptr<audio_cue> &start_cue,
+			           const shared_ptr<audio_cue> &end_cue, const std::string& name)
+				: source_id(source->ID_get()), start_cue_id(start_cue->ID_get()), end_cue_id(end_cue->ID_get()),
+				  str(strdup(name.c_str())) {}
+			~s() { free(str); }
+		};
+		api::callback_manager.RAC(ID_get(), new s(source, start_cue, end_cue, name));
 	}
 
 	auto audio_segment::play(const shared_ptr<audio_player> &player) -> bool
@@ -1320,6 +1555,18 @@ namespace uniq
 		const auto source = source_.lock();
 		const auto length = static_cast<double>(end_cue_->get() - start_cue_->get());
 		return chrono::microseconds(static_cast<int64_t>(length / source->data_->sample_rate_ * 1e6));
+	}
+
+	auto audio_segment::name_set(const std::string &name) -> bool
+	{
+		name_ = name;
+		api::callback_manager.RAC(ID_get(), name);
+		return true;
+	}
+
+	auto audio_segment::name_get() const -> const std::string &
+	{
+		return name_;
 	}
 
 	auto audio_segment::sync_target_add(id_t id) -> bool
@@ -1474,5 +1721,29 @@ namespace uniq
 		call_callback(*this, callback_mode::change_before);
 		end_cue_ = cue;
 		call_callback(*this, callback_mode::change_after);
+	}
+
+	auto audio_segment::waveform_get(const std::uint64_t window_size, const std::uint8_t channel) const -> float *
+	{
+		if (source_.expired())
+		{
+			log::error("원본 오디오 소스가 없습니다.");
+			return nullptr;
+		}
+		const auto source = source_.lock();
+		return source->waveform_get(static_cast<int64_t>(start_cue_->get()),
+			static_cast<int64_t>(end_cue_->get()), window_size, channel);
+	}
+
+	auto audio_segment::waveform_get_part(const std::int64_t start, const std::int64_t end, const std::uint64_t window_size,
+	                                      const std::uint8_t channel) const -> float *
+	{
+		if (source_.expired())
+		{
+			log::error("원본 오디오 소스가 없습니다.");
+			return nullptr;
+		}
+		const auto source = source_.lock();
+		return source->waveform_get(static_cast<int64_t>(start_cue_->get())+start, static_cast<int64_t>(start_cue_->get())+end, window_size, channel);
 	}
 }

@@ -217,22 +217,22 @@ namespace uniq::project
 		_timeline->name_set(name);
 	}
 
-	API void timeline_group_add(const id_t timeline_id, const id_t group_id)
+	API bool timeline_group_add(const id_t timeline_id, const id_t group_id)
 	{
 		const API_raii<timeline> _timeline(timeline_id);
-		if (!_timeline) return;
+		if (!_timeline) return false;
 		const auto _group = core::ID_manager::get_shared_ptr<timeline_group>(group_id);
-		if (!_group) return;
-		_timeline->group_add(_group);
+		if (!_group) return false;
+		return _timeline->group_add(_group);
 	}
 
-	API void timeline_group_remove(const id_t timeline_id, const id_t group_id)
+	API bool timeline_group_remove(const id_t timeline_id, const id_t group_id)
 	{
 		const API_raii<timeline> _timeline(timeline_id);
-		if (!_timeline) return;
+		if (!_timeline) return false;
 		const auto _group = core::ID_manager::get_shared_ptr<timeline_group>(group_id);
-		if (!_group) return;
-		_timeline->group_remove(_group);
+		if (!_group) return false;
+		return _timeline->group_remove(_group);
 	}
 #pragma endregion timeline
 

@@ -418,7 +418,7 @@ namespace uniq::unipack
 					log::warn("누락된 keysound: \"" + keysound.name + "\"");
 					return false;
 				}
-				group->segment_set(sound_source_iter->second->segment_create(0));
+				group->segment_set(sound_source_iter->second->segment_create(0, keysound.name));
 				group->start_cue_set(timeline_cue::create(cumulative_delay));
 				main_timeline->group_add(group);
 				// key_group_list_grid[x - 1][y - 1].emplace_back(group);
@@ -549,6 +549,35 @@ namespace uniq::unipack
 			else
 			{
 				log::warn("autoPlay 파일에 알 수 없는 명령어가 있습니다: \"" + line.toStdString() + "\"");
+			}
+		}
+
+		// press_duration이 정의되지 않은 경우, 음악 길이로 설정
+		for (auto& group_callback : main_timeline->internal.group_callback_set_get())
+		{
+			const auto& group = group_callback->group;
+			if (group->press_duration_get() < 0ms)
+			{
+				auto const cue_length = group->segment_get()->cue_length_get();
+				chrono::microseconds press_duration;
+				constexpr auto min_press_duration = 50ms;
+				constexpr auto press_duration_point1 = 150ms;
+				if (cue_length < min_press_duration)
+				{
+					press_duration = min_press_duration;
+				}
+				else if (cue_length < press_duration_point1)
+				{
+					constexpr auto m = (press_duration_point1 - min_press_duration - min_press_duration) / (press_duration_point1 - min_press_duration);
+					press_duration = min_press_duration + m * (cue_length - min_press_duration);
+				}
+				else
+				{
+					const auto& remaining = cue_length - press_duration_point1;
+					const auto& fraction = remaining * 2 / 3;
+					press_duration = min_press_duration + fraction;
+				}
+				group->press_duration_set(press_duration);
 			}
 		}
 	}

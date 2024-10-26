@@ -28,12 +28,17 @@ namespace uniq
 		struct audio_data
 		{
 			juce::AudioBuffer<float> buffer_;
+			float*** waveform_ = nullptr;
+			int** waveform_size_ = nullptr;
 			std::uint32_t sample_rate_ = 0;
 			std::string extension_;
 			std::string path_;
 			std::string name_;
 			shared_recursive_timed_mutex_priority mutex_; //독점의 경우 가능한 1ms 이하로 잠궈야 함.
+		private:
+			void waveform_create();
 		public:
+			~audio_data();
 			static std::shared_ptr<audio_data> load(const std::string& path);
 			static std::shared_ptr<audio_data> load(std::unique_ptr<juce::InputStream> input_stream,
 				const std::string& extension, const std::string& path = {}, const std::string& name = {});
@@ -389,7 +394,10 @@ namespace uniq
 		auto cue_find_lower_bound(std::uint64_t cue) -> std::shared_ptr<audio_cue>;
 		template<cue_remove_mode = cue_remove_mode::segment_merge_remove_back>
 		auto cue_remove(std::uint64_t cue) -> bool;
-		auto segment_create(std::uint64_t cue) -> std::shared_ptr<audio_segment>;
+		auto segment_create(std::uint64_t cue, const std::string &name) -> std::shared_ptr<audio_segment>;
+		[[nodiscard]] auto sample_rate_get() const -> std::uint32_t;
+		[[nodiscard]] auto waveform_get() const -> float***;
+		[[nodiscard]] auto waveform_get(std::int64_t start_cue, std::int64_t end_cue, std::uint64_t window_size, std::uint8_t channel) const -> float*;
 	};
 
 	// namespace internal
@@ -411,24 +419,28 @@ namespace uniq
 		std::shared_ptr<audio_cue> start_cue_;
 		// callback_event<audio_cue> start_cue_event_;
 		std::shared_ptr<audio_cue> end_cue_;
+		std::string name_;
 		// callback_event<audio_cue> end_cue_event_;
 		// void play();
 
 		// std::chrono::microseconds sync_target_time_;
 		std::set<id_t> sync_target_set_{};
-		std::chrono::microseconds time_hint{0};
+		std::chrono::microseconds time_hint{0}; //재생될 것으로 예상되는 시간(동기화 참조 용)
 		sync_duration_t sync_duration_start_{}; //일반적으로 음수(최대 +- 35분)
 		sync_duration_t sync_duration_end_{}; //일반적으로 양수
 		internal::fade_low_data fade_in_{};
 		internal::fade_low_data fade_out_{};
 		std::set<id_t> fade_out_target_set_{}; //일반적으로 1개만 사용
 	protected:
-		audio_segment(const std::shared_ptr<audio_source>& source, const std::shared_ptr<audio_cue>& start_cue, const std::shared_ptr<audio_cue>& end_cue);
+		audio_segment(const std::shared_ptr<audio_source>& source, const std::shared_ptr<audio_cue>& start_cue, const std::shared_ptr<audio_cue>& end_cue, const std::string& name);
 
 	public:
 		auto play(const std::shared_ptr<audio_player>& player) -> bool;
 		auto play(const std::shared_ptr<audio_player>& player, const audio_player::play_param& param) -> bool;
-		auto cue_length_get() const -> std::chrono::microseconds;
+		[[nodiscard]] auto cue_length_get() const -> std::chrono::microseconds;
+		auto name_set(const std::string& name) -> bool;
+		[[nodiscard]]
+		auto name_get() const -> const std::string&;
 		auto sync_target_add(id_t id) -> bool;
 		auto sync_target_add(const std::shared_ptr<audio_segment>& segment) -> bool;
 		auto sync_target_remove(id_t id) -> bool;
@@ -441,6 +453,8 @@ namespace uniq
 		auto sync_duration_set(const sync_duration_t& start, const sync_duration_t& end) -> bool;
 		void start_cue_change(const std::shared_ptr<audio_cue>& cue);
 		void end_cue_change(const std::shared_ptr<audio_cue>& cue);
+		auto waveform_get(std::uint64_t window_size, std::uint8_t channel) const -> float*;
+		auto waveform_get_part(std::int64_t start, std::int64_t end, std::uint64_t window_size, std::uint8_t channel) const -> float*;
 	};
 }
 

@@ -41,8 +41,8 @@ namespace uniq::project
 #pragma region timeline
 	API void *timeline_name_get(id_t timeline_id);
 	API void timeline_name_set(id_t timeline_id, const char *name);
-	API void timeline_group_add(id_t timeline_id, id_t group_id);
-	API void timeline_group_remove(id_t timeline_id, id_t group_id);
+	API bool timeline_group_add(id_t timeline_id, id_t group_id);
+	API bool timeline_group_remove(id_t timeline_id, id_t group_id);
 #pragma endregion timeline
 
 #pragma region timeline_cue

@@ -181,13 +181,17 @@ namespace uniq::project
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
 		const std::shared_ptr<timeline_group> &rhs) const
 	{
-		return lhs->group->start_cue_get()->cue_point_get() < rhs->start_cue_get()->cue_point_get();
+		if (const auto cmp = lhs->group->start_cue_get()->cue_point_get() <=> rhs->start_cue_get()->cue_point_get(); cmp != 0)
+			return cmp < 0;
+		return lhs->group->ID_get() < rhs->ID_get();
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<timeline_group> &lhs,
 		const std::shared_ptr<group_callback> &rhs) const
 	{
-		return lhs->start_cue_get()->cue_point_get() < rhs->group->start_cue_get()->cue_point_get();
+		if (const auto cmp = lhs->start_cue_get()->cue_point_get() <=> rhs->group->start_cue_get()->cue_point_get(); cmp != 0)
+			return cmp < 0;
+		return lhs->ID_get() < rhs->group->ID_get();
 	}
 
 	bool timeline::group_callback_set_compare::operator()(const std::shared_ptr<group_callback> &lhs,
@@ -237,23 +241,46 @@ namespace uniq::project
 
 	bool timeline::group_add(const std::shared_ptr<timeline_group> &group)
 	{
+		//TODO: audio_source가 없으면 등록해야 함
+		// 이미 존재하는 그룹인지 확인
+		if (group_callback_set_.contains(group))
+		{
+			log::warn("이미 존재하는 그룹입니다.");
+			return false;
+		}
+
 		using callback_mode = hierarchy::hierarchy_feature::callback_mode;
 		const auto group_callback_ = make_shared<group_callback>();
 		group_callback_->group = group;
-		const auto& button_change_before_callback = [&](const auto&)
+		const auto group_callback_weak = weak_ptr(group_callback_);
+		const auto& button_change_before_callback = [&, group_callback_weak](const auto&)
 		{
-			const auto& x = group->button_x_get();
-			const auto& y = group->button_y_get();
-			if (key_group_grid_[x][y].erase(group) == 0)
+			const auto group_callback = group_callback_weak.lock();
+			if (!group_callback)
+			{
+				log::error("group_callback이 존재하지 않습니다: 논리적 오류");
+				return;
+			}
+			const auto group_callback_group = group_callback->group;
+			const auto& x = group_callback_group->button_x_get();
+			const auto& y = group_callback_group->button_y_get();
+			if (key_group_grid_[x][y].erase(group_callback_group) == 0)
 			{
 				log::error("key_group_list에 group이 존재하지 않습니다: 논리적 오류");
 			}
 		};
-		const auto& button_change_after_callback = [&](const auto&)
+		const auto& button_change_after_callback = [&, group_callback_weak](const auto&)
 		{
-			const auto& x = group->button_x_get();
-			const auto& y = group->button_y_get();
-			key_group_grid_[x][y].insert(group);
+			const auto group_callback = group_callback_weak.lock();
+			if (!group_callback)
+			{
+				log::error("group_callback이 존재하지 않습니다: 논리적 오류");
+				return;
+			}
+			const auto group_callback_group = group_callback->group;
+			const auto& x = group_callback_group->button_x_get();
+			const auto& y = group_callback_group->button_y_get();
+			key_group_grid_[x][y].insert(group_callback_group);
 		};
 		// auto& button_x = group->button_x;
 		auto& button_x_callback_id_list = group_callback_->button_x_callback_id_list;
@@ -281,21 +308,25 @@ namespace uniq::project
 		const auto& cue = group->start_cue_get();
 		auto& start_cue_callback_id_list = group_callback_->start_cue_callback_id_list;
 		// start_cue_callback_id_list.reserve(start_cue_callback_id_list.size() + 2);
+		thread_local shared_ptr<group_callback> thread_local_group_callback;
 		start_cue_callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::change_before>(
-			[&](const auto&)
+			[&, group_callback_weak, button_change_before_callback](const auto&)
 			{
 				button_change_before_callback(0);
-				if (group_callback_set_.erase(group_callback_) == 0)
+				const auto& group_callback = group_callback_weak.lock();
+				thread_local_group_callback = group_callback;
+				if (group_callback_set_.erase(group_callback) == 0)
 				{
 					log::error("group_callback_set_에 group_callback_가 존재하지 않습니다: 논리적 오류");
 				}
 			}
 		));
 		start_cue_callback_id_list.push_back(cue->cue_point_callback_add<callback_mode::change_after>(
-			[&](const auto&)
+			[&, button_change_after_callback](const auto&)
 			{
 				button_change_after_callback(0);
-				group_callback_set_.insert(group_callback_);
+				group_callback_set_.insert(thread_local_group_callback);
+				thread_local_group_callback.reset();
 			}
 		));
 		group_callback_set_.insert(group_callback_);
